@@ -1,13 +1,13 @@
 -- name: CreateSnippet :exec
-INSERT INTO snippets (author, title, content, expires_at)
-VALUES ($1, $2, $3, $4);
+INSERT INTO snippets (author, title, content, expires_at, updated_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetSnippets :many
-SELECT id, author, title, content, expires_at, created_at from snippets
+SELECT id, author, title, content, expires_at, updated_at, created_at from snippets
 limit $1 offset $2;
 
 -- name: GetSnippet :one
-SELECT id, author, title, content, expires_at, created_at
+SELECT id, author, title, content, expires_at, updated_at, created_at
 FROM snippets
 WHERE id = $1;
 

@@ -10,6 +10,7 @@ import server/db
 import server/db/tokens
 import server/db/users
 import server/errors
+import server/helpers
 import server/sql
 import wisp
 
@@ -50,7 +51,12 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
 
     let password_bits = password.encoded_hash |> bit_array.from_string
 
-    sql.create_user(input.username, input.email, password_bits)
+    sql.create_user(
+      input.username,
+      input.email,
+      password_bits,
+      helpers.current_time(),
+    )
     |> db.exec(ctx.db, _)
     |> result.map_error(errors.DatabaseError)
   }

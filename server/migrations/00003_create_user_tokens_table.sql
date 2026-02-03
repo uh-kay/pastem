@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS user_tokens (
     hash bytea PRIMARY KEY,
     user_id bigint not null references users(id) on delete cascade,
-    expiry timestamp not null,
+    expiry bigint not null,
     scope text not null
 );
 -- +goose StatementEnd

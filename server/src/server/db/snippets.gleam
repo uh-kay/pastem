@@ -6,6 +6,7 @@ import pog
 import server/context
 import server/db
 import server/errors
+import server/helpers
 import server/sql
 import shared
 
@@ -22,6 +23,7 @@ pub fn list_snippets(ctx: context.Context) {
             row.title,
             row.content,
             row.expires_at,
+            row.updated_at,
             row.created_at,
           )
         })
@@ -49,6 +51,7 @@ pub fn get_snippet(
       title: row.title,
       content: row.content,
       expires_at: row.expires_at,
+      updated_at: row.updated_at,
       created_at: row.created_at,
     )
   })
@@ -60,9 +63,24 @@ pub fn create_snippet(
   content: String,
   expires_at: timestamp.Timestamp,
 ) {
-  sql.create_snippet(2, title, content, expires_at)
-  |> db.exec(ctx.db, _)
-  |> result.map_error(errors.DatabaseError)
+  case ctx.user {
+    option.Some(user) -> {
+      timestamp.to_unix_seconds_and_nanoseconds(expires_at).0
+      |> sql.create_snippet(
+        user.id,
+        title,
+        content,
+        _,
+        helpers.current_time(),
+        helpers.current_time(),
+      )
+      |> db.exec(ctx.db, _)
+      |> result.map_error(errors.DatabaseError)
+    }
+    option.None -> {
+      Error(errors.Unauthorized)
+    }
+  }
 }
 
 pub fn update_snippet(

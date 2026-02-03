@@ -14,7 +14,7 @@ pub type Token {
     plaintext: String,
     hash: BitArray,
     user_id: Int,
-    expiry: timestamp.Timestamp,
+    expiry: Int,
     scope: String,
   )
 }
@@ -27,8 +27,9 @@ pub fn generate_token(user_id: Int, ttl: duration.Duration, scope: String) {
   let hash = crypto.hash(crypto.Sha256, <<plaintext:utf8>>)
 
   let expiry = timestamp.add(timestamp.system_time(), ttl)
+  let #(expiry_unix, _) = timestamp.to_unix_seconds_and_nanoseconds(expiry)
 
-  Token(user_id:, expiry:, scope:, plaintext:, hash:)
+  Token(user_id:, expiry: expiry_unix, scope:, plaintext:, hash:)
 }
 
 pub fn create_new_token(

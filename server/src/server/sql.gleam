@@ -3,23 +3,26 @@
 
 import gleam/dynamic/decode
 import gleam/option.{type Option}
-import gleam/time/timestamp.{type Timestamp}
 import parrot/dev
 
 pub fn create_snippet(
   author author: Int,
   title title: String,
   content content: String,
-  expires_at expires_at: Timestamp,
+  expires_at expires_at: Int,
+  updated_at updated_at: Int,
+  created_at created_at: Int,
 ) {
   let sql =
-    "INSERT INTO snippets (author, title, content, expires_at)
-VALUES ($1, $2, $3, $4)"
+    "INSERT INTO snippets (author, title, content, expires_at, updated_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6)"
   #(sql, [
     dev.ParamInt(author),
     dev.ParamString(title),
     dev.ParamString(content),
-    dev.ParamTimestamp(expires_at),
+    dev.ParamInt(expires_at),
+    dev.ParamInt(updated_at),
+    dev.ParamInt(created_at),
   ])
 }
 
@@ -29,14 +32,15 @@ pub type GetSnippets {
     author: Int,
     title: String,
     content: String,
-    expires_at: Timestamp,
-    created_at: Timestamp,
+    expires_at: Int,
+    updated_at: Int,
+    created_at: Int,
   )
 }
 
 pub fn get_snippets(limit limit: Int, offset offset: Int) {
   let sql =
-    "SELECT id, author, title, content, expires_at, created_at from snippets
+    "SELECT id, author, title, content, expires_at, updated_at, created_at from snippets
 limit $1 offset $2"
   #(sql, [dev.ParamInt(limit), dev.ParamInt(offset)], get_snippets_decoder())
 }
@@ -46,14 +50,16 @@ pub fn get_snippets_decoder() -> decode.Decoder(GetSnippets) {
   use author <- decode.field(1, decode.int)
   use title <- decode.field(2, decode.string)
   use content <- decode.field(3, decode.string)
-  use expires_at <- decode.field(4, dev.datetime_decoder())
-  use created_at <- decode.field(5, dev.datetime_decoder())
+  use expires_at <- decode.field(4, decode.int)
+  use updated_at <- decode.field(5, decode.int)
+  use created_at <- decode.field(6, decode.int)
   decode.success(GetSnippets(
     id:,
     author:,
     title:,
     content:,
     expires_at:,
+    updated_at:,
     created_at:,
   ))
 }
@@ -64,14 +70,15 @@ pub type GetSnippet {
     author: Int,
     title: String,
     content: String,
-    expires_at: Timestamp,
-    created_at: Timestamp,
+    expires_at: Int,
+    updated_at: Int,
+    created_at: Int,
   )
 }
 
 pub fn get_snippet(id id: Int) {
   let sql =
-    "SELECT id, author, title, content, expires_at, created_at
+    "SELECT id, author, title, content, expires_at, updated_at, created_at
 FROM snippets
 WHERE id = $1"
   #(sql, [dev.ParamInt(id)], get_snippet_decoder())
@@ -82,14 +89,16 @@ pub fn get_snippet_decoder() -> decode.Decoder(GetSnippet) {
   use author <- decode.field(1, decode.int)
   use title <- decode.field(2, decode.string)
   use content <- decode.field(3, decode.string)
-  use expires_at <- decode.field(4, dev.datetime_decoder())
-  use created_at <- decode.field(5, dev.datetime_decoder())
+  use expires_at <- decode.field(4, decode.int)
+  use updated_at <- decode.field(5, decode.int)
+  use created_at <- decode.field(6, decode.int)
   decode.success(GetSnippet(
     id:,
     author:,
     title:,
     content:,
     expires_at:,
+    updated_at:,
     created_at:,
   ))
 }
@@ -111,14 +120,16 @@ pub fn create_user(
   username username: String,
   email email: String,
   password_hash password_hash: BitArray,
+  created_at created_at: Int,
 ) {
   let sql =
-    "INSERT INTO users (username, email, password_hash)
-VALUES ($1, $2, $3)"
+    "INSERT INTO users (username, email, password_hash, created_at)
+VALUES ($1, $2, $3, $4)"
   #(sql, [
     dev.ParamString(username),
     dev.ParamString(email),
     dev.ParamBitArray(password_hash),
+    dev.ParamInt(created_at),
   ])
 }
 
@@ -129,7 +140,7 @@ pub type GetUserByEmail {
     email: String,
     password_hash: BitArray,
     role_level: Int,
-    created_at: Timestamp,
+    created_at: Int,
   )
 }
 
@@ -148,7 +159,7 @@ pub fn get_user_by_email_decoder() -> decode.Decoder(GetUserByEmail) {
   use email <- decode.field(2, decode.string)
   use password_hash <- decode.field(3, decode.bit_array)
   use role_level <- decode.field(4, decode.int)
-  use created_at <- decode.field(5, dev.datetime_decoder())
+  use created_at <- decode.field(5, decode.int)
   decode.success(GetUserByEmail(
     id:,
     username:,
@@ -166,7 +177,7 @@ pub type GetUserByToken {
     email: String,
     password_hash: BitArray,
     role_level: Int,
-    created_at: Timestamp,
+    created_at: Int,
   )
 }
 
@@ -186,7 +197,7 @@ pub fn get_user_by_token_decoder() -> decode.Decoder(GetUserByToken) {
   use email <- decode.field(2, decode.string)
   use password_hash <- decode.field(3, decode.bit_array)
   use role_level <- decode.field(4, decode.int)
-  use created_at <- decode.field(5, dev.datetime_decoder())
+  use created_at <- decode.field(5, decode.int)
   decode.success(GetUserByToken(
     id:,
     username:,
@@ -200,7 +211,7 @@ pub fn get_user_by_token_decoder() -> decode.Decoder(GetUserByToken) {
 pub fn create_new_token(
   hash hash: BitArray,
   user_id user_id: Int,
-  expiry expiry: Timestamp,
+  expiry expiry: Int,
   scope scope: String,
 ) {
   let sql =
@@ -209,7 +220,7 @@ VALUES ($1, $2, $3, $4)"
   #(sql, [
     dev.ParamBitArray(hash),
     dev.ParamInt(user_id),
-    dev.ParamTimestamp(expiry),
+    dev.ParamInt(expiry),
     dev.ParamString(scope),
   ])
 }
@@ -227,7 +238,7 @@ pub type GetRoleByName {
     name: String,
     level: Int,
     description: Option(String),
-    created_at: Timestamp,
+    created_at: Int,
   )
 }
 
@@ -242,6 +253,6 @@ pub fn get_role_by_name_decoder() -> decode.Decoder(GetRoleByName) {
   use name <- decode.field(1, decode.string)
   use level <- decode.field(2, decode.int)
   use description <- decode.field(3, decode.optional(decode.string))
-  use created_at <- decode.field(4, dev.datetime_decoder())
+  use created_at <- decode.field(4, decode.int)
   decode.success(GetRoleByName(id:, name:, level:, description:, created_at:))
 }

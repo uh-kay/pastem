@@ -5,8 +5,9 @@ CREATE TABLE IF NOT EXISTS snippets (
     author bigint not null references users(id),
     title varchar(255) not null,
     content text not null,
-    expires_at timestamp not null,
-    created_at timestamp not null default now()
+    expires_at bigint not null,
+    updated_at bigint not null,
+    created_at bigint not null
 );
 -- +goose StatementEnd
 

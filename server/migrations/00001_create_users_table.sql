@@ -5,7 +5,7 @@ CREATE TABLE if not exists users (
     username varchar(255) unique not null,
     email citext unique not null,
     password_hash bytea not null,
-    created_at timestamp not null default now()
+    created_at bigint not null
 );
 -- +goose StatementEnd
 

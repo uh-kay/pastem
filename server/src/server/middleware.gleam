@@ -37,7 +37,10 @@ pub fn require_auth(
           next(req, new_ctx)
         }
         Error(err) -> {
-          errors.handle_error(req, err)
+          case err {
+            errors.NotFound(_) -> wisp.response(401)
+            _ -> errors.handle_error(req, err)
+          }
         }
       }
     }
