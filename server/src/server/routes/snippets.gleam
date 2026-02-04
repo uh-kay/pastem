@@ -7,10 +7,11 @@ import gleam/result
 import gleam/time/duration
 import gleam/time/timestamp
 import server/context
-import server/db/snippets
 import server/errors
 import server/middleware
+import server/model/snippets
 import shared
+import validator/validator
 import wisp
 
 pub fn snippets(ctx: context.Context, req: wisp.Request, id: String) {
@@ -89,6 +90,18 @@ fn create_snippet(ctx: context.Context, req: wisp.Request) {
       )),
     )
 
+    let validation = {
+      validator.new()
+      |> snippets.validate_title(input.title)
+      |> snippets.validate_content(input.content)
+      |> snippets.validate_ttl(input.ttl)
+    }
+
+    use _ <- result.try(case validator.valid(validation) {
+      True -> Ok(Nil)
+      False -> Error(errors.ValidationError(validation.errors))
+    })
+
     let expires_at =
       timestamp.add(timestamp.system_time(), duration.hours(input.ttl))
 
@@ -127,6 +140,25 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
       decode.run(json, update_snippet_decoder())
       |> result.replace_error(errors.BadRequest("missing title and content")),
     )
+
+    let validation = {
+      case input.title, input.content {
+        option.Some(title), _ -> {
+          validator.new()
+          |> snippets.validate_title(title)
+        }
+        _, option.Some(content) -> {
+          validator.new()
+          |> snippets.validate_content(content)
+        }
+        option.None, option.None -> validator.new()
+      }
+    }
+
+    use _ <- result.try(case validator.valid(validation) {
+      True -> Ok(Nil)
+      False -> Error(errors.ValidationError(validation.errors))
+    })
 
     use id <- result.try(parse_id(id))
 
