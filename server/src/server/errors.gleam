@@ -1,6 +1,9 @@
 import argus
+import gleam/dict
 import gleam/http
 import gleam/int
+import gleam/list
+import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import pog
@@ -13,6 +16,7 @@ pub type AppError {
   NotFound(String)
   DatabaseError(pog.QueryError)
   HashError(argus.HashError)
+  ValidationError(dict.Dict(String, String))
 }
 
 pub fn handle_error(req: wisp.Request, err: AppError) -> wisp.Response {
@@ -34,6 +38,10 @@ pub fn handle_error(req: wisp.Request, err: AppError) -> wisp.Response {
     BadRequest(_) -> {
       format_log(req, message) |> wisp.log_warning()
       wisp.bad_request("bad request")
+    }
+    ValidationError(_) -> {
+      format_log(req, message) |> wisp.log_warning()
+      wisp.bad_request(message)
     }
   }
 }
@@ -71,6 +79,14 @@ pub fn app_error_to_string(err: AppError) {
     NotFound(val) -> val <> " not found"
     DatabaseError(err) -> pog_error_to_string(err)
     HashError(err) -> argus_error_to_string(err)
+    ValidationError(err) ->
+      "validation error: "
+      <> {
+        err
+        |> dict.to_list
+        |> list.map(fn(pair) { pair.0 <> ": " <> pair.1 })
+        |> string.join(", ")
+      }
   }
 }
 

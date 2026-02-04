@@ -2,11 +2,57 @@ import argus
 import gleam/bit_array
 import gleam/list
 import gleam/result
+import gleam/string
 import server/context
 import server/db
 import server/errors
 import server/sql
 import shared
+import validator/validator
+
+pub fn validate_username(validator: validator.Validator, username: String) {
+  let len = string.length(username)
+
+  validator
+  |> validator.check(!string.is_empty(username), "username", "must be provided")
+  |> validator.check(len >= 1, "username", "must be at least 1 byte long")
+  |> validator.check(
+    len <= 255,
+    "username",
+    "must not be more than 255 bytes long",
+  )
+}
+
+pub fn validate_email(validator: validator.Validator, email: String) {
+  let len = string.length(email)
+
+  validator
+  |> validator.check(!string.is_empty(email), "email", "must be provided")
+  |> validator.check(
+    validator.matches(email, validator.email_rx()),
+    "email",
+    "invalid email",
+  )
+  |> validator.check(len >= 1, "email", "must be at least 1 byte long")
+  |> validator.check(
+    len <= 255,
+    "email",
+    "must not be more than 255 bytes long",
+  )
+}
+
+pub fn validate_password(validator: validator.Validator, password: String) {
+  let len = string.length(password)
+
+  validator
+  |> validator.check(!string.is_empty(password), "password", "must be provided")
+  |> validator.check(len >= 1, "password", "must be at least 1 byte long")
+  |> validator.check(
+    len <= 72,
+    "password",
+    "must not be more than 255 bytes long",
+  )
+}
 
 pub fn get_user(ctx: context.Context, email: String) {
   case sql.get_user_by_email(email) |> db.query(ctx.db, _) {

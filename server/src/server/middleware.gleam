@@ -3,9 +3,9 @@ import gleam/http/request
 import gleam/option
 import gleam/result
 import server/context
-import server/db/roles
-import server/db/users
 import server/errors
+import server/model/roles
+import server/model/users
 import wisp
 
 pub fn middleware(

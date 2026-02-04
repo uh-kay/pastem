@@ -7,11 +7,12 @@ import gleam/result
 import gleam/time/duration
 import server/context
 import server/db
-import server/db/tokens
-import server/db/users
 import server/errors
 import server/helpers
+import server/model/tokens
+import server/model/users
 import server/sql
+import validator/validator
 import wisp
 
 pub type Register {
@@ -42,6 +43,18 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
         "missing email, username, or password",
       )),
     )
+
+    let validation = {
+      validator.new()
+      |> users.validate_username(input.username)
+      |> users.validate_email(input.email)
+      |> users.validate_password(input.password)
+    }
+
+    use _ <- result.try(case validator.valid(validation) {
+      True -> Ok(Nil)
+      False -> Error(errors.ValidationError(validation.errors))
+    })
 
     use password <- result.try(
       argus.hasher()
@@ -92,6 +105,17 @@ fn login_user(ctx: context.Context, req: wisp.Request) -> wisp.Response {
     use input <- result.try(case decode.run(json, login_decoder()) {
       Ok(input) -> Ok(input)
       Error(_) -> Error(errors.BadRequest("failed to decode body"))
+    })
+
+    let validation = {
+      validator.new()
+      |> users.validate_email(input.email)
+      |> users.validate_password(input.password)
+    }
+
+    use _ <- result.try(case validator.valid(validation) {
+      True -> Ok(Nil)
+      False -> Error(errors.ValidationError(validation.errors))
     })
 
     use user <- result.try(users.verify_user(ctx, input.email, input.password))
