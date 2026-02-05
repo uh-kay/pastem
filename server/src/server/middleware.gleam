@@ -1,10 +1,12 @@
 import gleam/crypto
 import gleam/http/request
+import gleam/int
 import gleam/option
 import gleam/result
 import server/context
 import server/errors
 import server/model/roles
+import server/model/snippets
 import server/model/users
 import wisp
 
@@ -57,41 +59,61 @@ pub fn require_permission(
   role_name: String,
   next: fn(wisp.Request, context.Context) -> wisp.Response,
 ) {
-  case check_role_level(ctx, role_name) {
-    Ok(match) -> {
-      case match {
-        True -> next(req, ctx)
-        False -> wisp.response(403)
+  let is_owner = check_owner(ctx) |> result.unwrap(False)
+  let is_admin = check_role_level(ctx, role_name) |> result.unwrap(False)
+
+  case is_owner || is_admin {
+    True -> next(req, ctx)
+    False -> wisp.response(401)
+  }
+}
+
+pub fn snippet_context_middleware(
+  ctx: context.Context,
+  req: wisp.Request,
+  id: String,
+  next: fn(wisp.Request, context.Context) -> wisp.Response,
+) -> wisp.Response {
+  case result.replace_error(int.parse(id), errors.BadRequest("invalid id")) {
+    Ok(id) -> {
+      case snippets.get_snippet(ctx, id) {
+        Ok(snippet) -> {
+          let new_ctx = context.Context(..ctx, snippet: option.Some(snippet))
+          next(req, new_ctx)
+        }
+        Error(err) -> errors.handle_error(req, err)
       }
     }
     Error(err) -> errors.handle_error(req, err)
   }
 }
 
-fn snippet_context_middleware() {
-  todo
+fn check_owner(ctx: context.Context) -> Result(Bool, errors.AppError) {
+  case ctx.snippet {
+    option.Some(snippet) ->
+      case ctx.user {
+        option.Some(user) -> Ok({ user.id == snippet.author })
+        option.None -> Error(errors.NotFound("user"))
+      }
+    option.None -> Error(errors.NotFound("snippet"))
+  }
 }
 
 fn check_role_level(
   ctx: context.Context,
   role_name: String,
 ) -> Result(Bool, errors.AppError) {
-  let result = {
-    use role <- result.try(roles.get_role(ctx, role_name))
+  use role <- result.try(roles.get_role(ctx, role_name))
 
-    case ctx.user {
-      option.Some(user) -> Ok({ user.role_level >= role.level })
-      option.None -> Error(errors.NotFound("user"))
-    }
-  }
-  case result {
-    Ok(match) -> Ok(match)
-    Error(err) -> Error(err)
+  case ctx.user {
+    option.Some(user) -> Ok({ user.role_level >= role.level })
+    option.None -> Error(errors.NotFound("user"))
   }
 }
 
-pub fn require_admin(req, ctx, next) {
+pub fn require_admin_or_owner(req, ctx, id, next) {
   use req, ctx <- require_auth(req, ctx)
+  use req, ctx <- snippet_context_middleware(ctx, req, id)
   use req, ctx <- require_permission(req, ctx, "admin")
   next(req, ctx)
 }

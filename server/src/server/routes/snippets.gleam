@@ -24,11 +24,11 @@ pub fn snippets(ctx: context.Context, req: wisp.Request, id: String) {
       create_snippet(ctx, req)
     }
     http.Patch, id -> {
-      use req, ctx <- middleware.require_auth(req, ctx)
+      use req, ctx <- middleware.require_admin_or_owner(req, ctx, id)
       update_snippet(ctx, req, id)
     }
     http.Delete, id -> {
-      use req, ctx <- middleware.require_admin(req, ctx)
+      use req, ctx <- middleware.require_admin_or_owner(req, ctx, id)
       delete_snippet(ctx, req, id)
     }
     _, _ ->
