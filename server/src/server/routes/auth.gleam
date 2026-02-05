@@ -81,28 +81,28 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
   }
 }
 
-pub fn login(ctx: context.Context, req: wisp.Request) {
+pub fn tokens(ctx: context.Context, req: wisp.Request) {
   case req.method {
-    http.Post -> login_user(ctx, req)
+    http.Post -> create_token(ctx, req)
     _ -> wisp.method_not_allowed([http.Post])
   }
 }
 
-pub type Login {
-  Login(email: String, password: String)
+pub type CreateToken {
+  CreateToken(email: String, password: String)
 }
 
-fn login_decoder() -> decode.Decoder(Login) {
+fn create_token_decoder() -> decode.Decoder(CreateToken) {
   use email <- decode.field("email", decode.string)
   use password <- decode.field("password", decode.string)
-  decode.success(Login(email:, password:))
+  decode.success(CreateToken(email:, password:))
 }
 
-fn login_user(ctx: context.Context, req: wisp.Request) -> wisp.Response {
+fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
   use json <- wisp.require_json(req)
 
   let result = {
-    use input <- result.try(case decode.run(json, login_decoder()) {
+    use input <- result.try(case decode.run(json, create_token_decoder()) {
       Ok(input) -> Ok(input)
       Error(_) -> Error(errors.BadRequest("failed to decode body"))
     })
