@@ -2,6 +2,9 @@ import envoy
 import gleam/erlang/process
 import gleam/option
 import gleam/result
+import gleam/time/calendar
+import gleam/time/timestamp
+import logging
 import mist
 import pog
 import server/context
@@ -30,6 +33,12 @@ pub fn main() -> Nil {
     |> mist.new
     |> mist.port(8000)
     |> mist.start
+
+  logging.log(
+    logging.Info,
+    timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
+      <> " server started on port 8000",
+  )
 
   process.sleep_forever()
 }

@@ -11,7 +11,7 @@ pub fn handle_request(ctx: context.Context, req: Request) -> Response {
   case wisp.path_segments(req) {
     ["api", "health"] -> health.health()
     ["api", "register"] -> auth.register(ctx, req)
-    ["api", "login"] -> auth.login(ctx, req)
+    ["api", "tokens"] -> auth.tokens(ctx, req)
     ["api", "snippets"] -> snippets.snippets(ctx, req, "")
     ["api", "snippets", id] -> snippets.snippets(ctx, req, id)
     _ -> wisp.not_found()

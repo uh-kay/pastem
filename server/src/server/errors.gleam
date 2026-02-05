@@ -48,11 +48,11 @@ pub fn handle_error(req: wisp.Request, err: AppError) -> wisp.Response {
 
 pub fn format_log(req: wisp.Request, message: String) {
   timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
-  <> " | "
+  <> " "
   <> http_method_to_string(req.method)
-  <> " | "
+  <> " "
   <> req.path
-  <> " | "
+  <> " "
   <> message
 }
 
