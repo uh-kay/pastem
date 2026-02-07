@@ -8,6 +8,7 @@ import logging
 import mist
 import pog
 import server/context
+import server/db
 import server/router
 import wisp
 import wisp/wisp_mist
@@ -24,7 +25,7 @@ pub fn main() -> Nil {
   let secret_key_base =
     result.unwrap(envoy.get("SECRET_KEY_BASE"), "changethis")
 
-  let context = context.Context(con, option.None, option.None)
+  let context = context.Context(db.Pog(con), option.None, option.None)
   let handler = router.handle_request(context, _)
 
   let assert Ok(_) =

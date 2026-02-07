@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: health handler
+file: ./test/health_test.gleam
+test_name: health_handler_test
+---
+{"status":"available"}

@@ -1,10 +1,10 @@
 import gleam/option
-import pog.{type Connection}
+import server/db
 import shared
 
 pub type Context {
   Context(
-    db: Connection,
+    db: db.Connection,
     user: option.Option(shared.User),
     snippet: option.Option(shared.Snippet),
   )

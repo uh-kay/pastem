@@ -1,7 +1,16 @@
+import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/list
 import parrot/dev
 import pog
+
+pub type Connection {
+  Pog(pog.Connection)
+  Mock(
+    fn(String, List(dev.Param)) ->
+      Result(pog.Returned(dynamic.Dynamic), pog.QueryError),
+  )
+}
 
 pub fn parrot_to_pog(param: dev.Param) -> pog.Value {
   case param {
@@ -18,26 +27,57 @@ pub fn parrot_to_pog(param: dev.Param) -> pog.Value {
   }
 }
 
-pub fn query(
-  db: pog.Connection,
-  b: #(String, List(dev.Param), decode.Decoder(a)),
-) {
-  b.0
-  |> pog.query()
-  |> pog.returning(b.2)
-  |> list.fold(b.1, _, fn(acc, param) {
-    let param = parrot_to_pog(param)
-    pog.parameter(acc, param)
-  })
-  |> pog.execute(db)
+pub fn query(db: Connection, b: #(String, List(dev.Param), decode.Decoder(a))) {
+  let query_string = b.0
+  let params = b.1
+  let decoder = b.2
+
+  case db {
+    Pog(conn) -> {
+      query_string
+      |> pog.query()
+      |> pog.returning(decoder)
+      |> list.fold(params, _, fn(acc, param) {
+        let param = parrot_to_pog(param)
+        pog.parameter(acc, param)
+      })
+      |> pog.execute(conn)
+    }
+    Mock(handler) -> {
+      case handler(query_string, params) {
+        Ok(returned) -> {
+          let rows =
+            list.try_map(returned.rows, fn(row) { decode.run(row, decoder) })
+          case rows {
+            Ok(rows) -> Ok(pog.Returned(returned.count, rows))
+            Error(_) -> panic as "Mock decoding failed"
+          }
+        }
+        Error(err) -> Error(err)
+      }
+    }
+  }
 }
 
-pub fn exec(db: pog.Connection, b: #(String, List(dev.Param))) {
-  b.0
-  |> pog.query()
-  |> list.fold(b.1, _, fn(acc, param) {
-    let param = parrot_to_pog(param)
-    pog.parameter(acc, param)
-  })
-  |> pog.execute(db)
+pub fn exec(db: Connection, b: #(String, List(dev.Param))) {
+  let query_string = b.0
+  let params = b.1
+
+  case db {
+    Pog(conn) -> {
+      query_string
+      |> pog.query()
+      |> list.fold(params, _, fn(acc, param) {
+        let param = parrot_to_pog(param)
+        pog.parameter(acc, param)
+      })
+      |> pog.execute(conn)
+    }
+    Mock(handler) -> {
+      case handler(query_string, params) {
+        Ok(returned) -> Ok(pog.Returned(returned.count, []))
+        Error(err) -> Error(err)
+      }
+    }
+  }
 }

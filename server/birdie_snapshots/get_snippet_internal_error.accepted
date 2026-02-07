@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: get snippet internal error
+file: ./test/snippet_test.gleam
+test_name: get_snippet_internal_err_test
+---
+{"error":"internal server error"}

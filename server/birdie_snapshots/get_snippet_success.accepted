@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: get snippet success
+file: ./test/snippet_test.gleam
+test_name: get_snippet_test
+---
+{"snippet":{"id":1,"author":1,"title":"Test Snippet","content":"Hello World","expires_at":100,"updated_at":100,"created_at":100}}

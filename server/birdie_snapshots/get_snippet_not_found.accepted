@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: get snippet not found
+file: ./test/snippet_test.gleam
+test_name: get_snippet_not_found_test
+---
+{"error":"snippet not found"}

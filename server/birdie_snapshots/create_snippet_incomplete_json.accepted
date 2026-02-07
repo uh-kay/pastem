@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: create snippet incomplete json
+file: ./test/snippet_test.gleam
+test_name: create_snippet_incomplete_json_test
+---
+{"error":"missing title, content, or ttl"}
