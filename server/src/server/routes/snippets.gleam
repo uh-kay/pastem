@@ -8,6 +8,7 @@ import gleam/time/duration
 import gleam/time/timestamp
 import server/context
 import server/errors
+import server/helpers
 import server/middleware
 import server/model/snippets
 import shared
@@ -47,8 +48,7 @@ fn view_snippet(ctx: context.Context, req: wisp.Request, id: String) {
     Ok(snippet) ->
       snippet
       |> shared.snippet_to_json
-      |> json.to_string
-      |> wisp.json_response(200)
+      |> helpers.json_response("snippet", 200)
     Error(err) ->
       case err {
         _ -> errors.handle_error(req, err)
@@ -61,8 +61,7 @@ fn list_snippets(ctx: context.Context, req: wisp.Request) {
     Ok(snippets) -> {
       snippets
       |> json.array(shared.snippet_to_json)
-      |> json.to_string
-      |> wisp.json_response(200)
+      |> helpers.json_response("snippets", 200)
     }
     Error(err) -> errors.handle_error(req, err)
   }
@@ -109,7 +108,7 @@ fn create_snippet(ctx: context.Context, req: wisp.Request) {
   }
 
   case result {
-    Ok(_) -> wisp.created()
+    Ok(_) -> helpers.message_response("snippet created", 201)
     Error(err) -> errors.handle_error(req, err)
   }
 }
@@ -175,7 +174,7 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
   }
 
   case result {
-    Ok(_) -> wisp.no_content()
+    Ok(_) -> helpers.message_response("snippet updated", 200)
     Error(err) -> errors.handle_error(req, err)
   }
 }
@@ -188,7 +187,7 @@ fn delete_snippet(ctx: context.Context, req: wisp.Request, id: String) {
   }
 
   case result {
-    Ok(_) -> wisp.no_content()
+    Ok(_) -> helpers.message_response("snippet deleted", 200)
     Error(err) -> errors.handle_error(req, err)
   }
 }

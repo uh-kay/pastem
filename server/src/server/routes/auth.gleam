@@ -75,8 +75,7 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
   }
 
   case result {
-    Ok(_) -> wisp.created()
-    Error(errors.BadRequest(err)) -> wisp.bad_request(err)
+    Ok(_) -> helpers.message_response("user created", 201)
     Error(err) -> errors.handle_error(req, err)
   }
 }
@@ -133,13 +132,7 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
   case result {
     Ok(token) ->
       json.object([#("token", json.string(token))])
-      |> json.to_string
-      |> wisp.json_response(200)
-    Error(err) -> {
-      case err {
-        errors.BadRequest(err) -> wisp.bad_request(err)
-        _ -> errors.handle_error(req, err)
-      }
-    }
+      |> helpers.json_response("token", 201)
+    Error(err) -> errors.handle_error(req, err)
   }
 }

@@ -7,6 +7,7 @@ import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import pog
+import server/helpers
 import wisp
 
 pub type AppError {
@@ -25,23 +26,23 @@ pub fn handle_error(req: wisp.Request, err: AppError) -> wisp.Response {
   case err {
     NotFound(_) -> {
       format_log(req, message) |> wisp.log_warning()
-      wisp.not_found()
+      helpers.error_response(message, 404)
     }
     Unauthorized -> {
       format_log(req, message) |> wisp.log_warning()
-      wisp.response(401)
+      helpers.error_response(message, 401)
     }
     InternalServerError(_) | DatabaseError(_) | HashError(_) -> {
       format_log(req, message) |> wisp.log_error()
-      wisp.internal_server_error()
+      helpers.error_response("internal server error", 500)
     }
     BadRequest(_) -> {
       format_log(req, message) |> wisp.log_warning()
-      wisp.bad_request("bad request")
+      helpers.error_response(message, 400)
     }
     ValidationError(_) -> {
       format_log(req, message) |> wisp.log_warning()
-      wisp.bad_request(message)
+      helpers.error_response(message, 400)
     }
   }
 }
