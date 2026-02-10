@@ -27,7 +27,8 @@ pub fn log_request(
   req: wisp.Request,
   handler: fn() -> wisp.Response,
 ) -> wisp.Response {
-  errors.format_log(req, "")
+  let res = handler()
+  errors.format_log(req, option.Some(res), "")
   |> wisp.log_info
   handler()
 }

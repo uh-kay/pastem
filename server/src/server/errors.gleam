@@ -3,6 +3,7 @@ import gleam/dict
 import gleam/http
 import gleam/int
 import gleam/list
+import gleam/option
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
@@ -25,36 +26,57 @@ pub fn handle_error(req: wisp.Request, err: AppError) -> wisp.Response {
 
   case err {
     NotFound(_) -> {
-      format_log(req, message) |> wisp.log_warning()
+      format_log(req, option.None, message) |> wisp.log_warning()
       helpers.error_response(message, 404)
     }
     Unauthorized -> {
-      format_log(req, message) |> wisp.log_warning()
+      format_log(req, option.None, message) |> wisp.log_warning()
       helpers.error_response(message, 401)
     }
     InternalServerError(_) | DatabaseError(_) | HashError(_) -> {
-      format_log(req, message) |> wisp.log_error()
+      format_log(req, option.None, message) |> wisp.log_error()
       helpers.error_response("internal server error", 500)
     }
     BadRequest(_) -> {
-      format_log(req, message) |> wisp.log_warning()
+      format_log(req, option.None, message) |> wisp.log_warning()
       helpers.error_response(message, 400)
     }
     ValidationError(_) -> {
-      format_log(req, message) |> wisp.log_warning()
+      format_log(req, option.None, message) |> wisp.log_warning()
       helpers.error_response(message, 400)
     }
   }
 }
 
-pub fn format_log(req: wisp.Request, message: String) {
-  timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
-  <> " "
-  <> http_method_to_string(req.method)
-  <> " "
-  <> req.path
-  <> " "
-  <> message
+pub fn format_log(
+  req: wisp.Request,
+  res: option.Option(wisp.Response),
+  message: String,
+) {
+  let log =
+    timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
+    <> " "
+  let log = case res {
+    option.Some(res) -> {
+      log
+      <> int.to_string(res.status)
+      <> " "
+      <> http_method_to_string(req.method)
+      <> " "
+      <> req.path
+      <> " "
+      <> message
+    }
+    option.None -> {
+      log
+      <> http_method_to_string(req.method)
+      <> " "
+      <> req.path
+      <> " "
+      <> message
+    }
+  }
+  log
 }
 
 fn http_method_to_string(method: http.Method) {
