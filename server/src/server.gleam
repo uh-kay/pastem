@@ -1,5 +1,6 @@
 import envoy
 import gleam/erlang/process
+import gleam/int
 import gleam/option
 import gleam/result
 import gleam/time/calendar
@@ -24,6 +25,8 @@ pub fn main() -> Nil {
 
   let secret_key_base =
     result.unwrap(envoy.get("SECRET_KEY_BASE"), "changethis")
+  let port_str = result.unwrap(envoy.get("PORT"), "8000")
+  let assert Ok(port) = int.parse(port_str)
 
   let context = context.Context(db.Pog(con), option.None, option.None)
   let handler = router.handle_request(context, _)
@@ -32,7 +35,7 @@ pub fn main() -> Nil {
     handler
     |> wisp_mist.handler(secret_key_base)
     |> mist.new
-    |> mist.port(8000)
+    |> mist.port(port)
     |> mist.start
 
   logging.log(
