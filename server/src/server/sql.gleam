@@ -103,12 +103,20 @@ pub fn get_snippet_decoder() -> decode.Decoder(GetSnippet) {
   ))
 }
 
-pub fn update_snippet(title title: String, content content: String, id id: Int) {
+pub fn update_snippet(
+  id id: Int,
+  title title: Option(String),
+  content content: Option(String),
+) {
   let sql =
     "UPDATE snippets
-SET title = COALESCE($1, title), content = COALESCE($2, content)
-WHERE id = $3"
-  #(sql, [dev.ParamString(title), dev.ParamString(content), dev.ParamInt(id)])
+SET title = COALESCE($2, title), content = COALESCE($3, content)
+WHERE id = $1"
+  #(sql, [
+    dev.ParamInt(id),
+    dev.ParamNullable(option.map(title, fn(v) { dev.ParamString(v) })),
+    dev.ParamNullable(option.map(content, fn(v) { dev.ParamString(v) })),
+  ])
 }
 
 pub fn delete_snippet(id id: Int) {

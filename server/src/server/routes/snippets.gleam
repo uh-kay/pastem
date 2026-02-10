@@ -10,7 +10,7 @@ import server/context
 import server/errors
 import server/helpers
 import server/middleware
-import server/model/snippets
+import server/models/snippets
 import shared
 import validator/validator
 import wisp
@@ -121,12 +121,12 @@ fn update_snippet_decoder() -> decode.Decoder(UpdateSnippet) {
   use title <- decode.optional_field(
     "title",
     option.None,
-    decode.optional(decode.string),
+    decode.map(decode.string, option.Some),
   )
   use content <- decode.optional_field(
     "content",
     option.None,
-    decode.optional(decode.string),
+    decode.map(decode.string, option.Some),
   )
   decode.success(UpdateSnippet(title:, content:))
 }
@@ -161,16 +161,7 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
 
     use id <- result.try(parse_id(id))
 
-    use existing_snippet <- result.try(snippets.get_snippet(ctx, id))
-
-    snippets.update_snippet(
-      ctx,
-      input.title,
-      input.content,
-      existing_snippet.title,
-      existing_snippet.content,
-      id,
-    )
+    snippets.update_snippet(ctx, input.title, input.content, id)
   }
 
   case result {

@@ -9,8 +9,8 @@ import server/context
 import server/db
 import server/errors
 import server/helpers
-import server/model/tokens
-import server/model/users
+import server/models/tokens
+import server/models/users
 import server/sql
 import validator/validator
 import wisp
@@ -130,9 +130,7 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
   }
 
   case result {
-    Ok(token) ->
-      json.object([#("token", json.string(token))])
-      |> helpers.json_response("token", 201)
+    Ok(token) -> helpers.json_response(json.string(token), "token", 201)
     Error(err) -> errors.handle_error(req, err)
   }
 }

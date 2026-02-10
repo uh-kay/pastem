@@ -126,19 +126,13 @@ pub fn update_snippet(
   ctx: context.Context,
   title: option.Option(String),
   content: option.Option(String),
-  old_title: String,
-  old_content,
   id: Int,
 ) {
   case title, content {
     option.None, option.None ->
       Error(errors.BadRequest("missing title and content"))
     _, _ -> {
-      sql.update_snippet(
-        option.unwrap(title, old_title),
-        option.unwrap(content, old_content),
-        id,
-      )
+      sql.update_snippet(id, title, content)
       |> db.exec(ctx.db, _)
       |> result.map_error(errors.DatabaseError)
     }

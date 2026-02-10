@@ -13,8 +13,8 @@ WHERE id = $1;
 
 -- name: UpdateSnippet :exec
 UPDATE snippets
-SET title = COALESCE($1, title), content = COALESCE($2, content)
-WHERE id = $3;
+SET title = COALESCE(sqlc.narg('title'), title), content = COALESCE(sqlc.narg('content'), content)
+WHERE id = $1;
 
 -- name: DeleteSnippet :exec
 DELETE from snippets where id = $1;

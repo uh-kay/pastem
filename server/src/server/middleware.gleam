@@ -5,9 +5,9 @@ import gleam/option
 import gleam/result
 import server/context
 import server/errors
-import server/model/roles
-import server/model/snippets
-import server/model/users
+import server/models/roles
+import server/models/snippets
+import server/models/users
 import wisp
 
 pub fn middleware(
