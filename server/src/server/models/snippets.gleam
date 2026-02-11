@@ -61,6 +61,7 @@ pub fn list_snippets(ctx: context.Context) {
             row.author,
             row.title,
             row.content,
+            row.version,
             row.expires_at,
             row.updated_at,
             row.created_at,
@@ -89,6 +90,7 @@ pub fn get_snippet(
       author: row.author,
       title: row.title,
       content: row.content,
+      version: row.version,
       expires_at: row.expires_at,
       updated_at: row.updated_at,
       created_at: row.created_at,
@@ -128,11 +130,17 @@ pub fn update_snippet(
   content: option.Option(String),
   id: Int,
 ) {
+  use old_snippet <- result.try(get_snippet(ctx, id))
+
   case title, content {
     option.None, option.None ->
       Error(errors.BadRequest("missing title and content"))
-    _, _ -> {
-      sql.update_snippet(id, title, content)
+    option.None, option.Some(content) ->
+      sql.update_snippet(old_snippet.title, content, id, old_snippet.version)
+      |> db.exec(ctx.db, _)
+      |> result.map_error(errors.DatabaseError)
+    option.Some(title), _ -> {
+      sql.update_snippet(title, old_snippet.content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
       |> result.map_error(errors.DatabaseError)
     }

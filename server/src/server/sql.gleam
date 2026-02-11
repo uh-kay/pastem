@@ -32,6 +32,7 @@ pub type GetSnippets {
     author: Int,
     title: String,
     content: String,
+    version: Int,
     expires_at: Int,
     updated_at: Int,
     created_at: Int,
@@ -40,8 +41,8 @@ pub type GetSnippets {
 
 pub fn get_snippets(limit limit: Int, offset offset: Int) {
   let sql =
-    "SELECT id, author, title, content, expires_at, updated_at, created_at from snippets
-limit $1 offset $2"
+    "SELECT id, author, title, content, version, expires_at, updated_at, created_at from snippets
+LIMIT $1 OFFSET $2"
   #(sql, [dev.ParamInt(limit), dev.ParamInt(offset)], get_snippets_decoder())
 }
 
@@ -50,14 +51,16 @@ pub fn get_snippets_decoder() -> decode.Decoder(GetSnippets) {
   use author <- decode.field(1, decode.int)
   use title <- decode.field(2, decode.string)
   use content <- decode.field(3, decode.string)
-  use expires_at <- decode.field(4, decode.int)
-  use updated_at <- decode.field(5, decode.int)
-  use created_at <- decode.field(6, decode.int)
+  use version <- decode.field(4, decode.int)
+  use expires_at <- decode.field(5, decode.int)
+  use updated_at <- decode.field(6, decode.int)
+  use created_at <- decode.field(7, decode.int)
   decode.success(GetSnippets(
     id:,
     author:,
     title:,
     content:,
+    version:,
     expires_at:,
     updated_at:,
     created_at:,
@@ -70,6 +73,7 @@ pub type GetSnippet {
     author: Int,
     title: String,
     content: String,
+    version: Int,
     expires_at: Int,
     updated_at: Int,
     created_at: Int,
@@ -78,7 +82,7 @@ pub type GetSnippet {
 
 pub fn get_snippet(id id: Int) {
   let sql =
-    "SELECT id, author, title, content, expires_at, updated_at, created_at
+    "SELECT id, author, title, content, version, expires_at, updated_at, created_at
 FROM snippets
 WHERE id = $1"
   #(sql, [dev.ParamInt(id)], get_snippet_decoder())
@@ -89,14 +93,16 @@ pub fn get_snippet_decoder() -> decode.Decoder(GetSnippet) {
   use author <- decode.field(1, decode.int)
   use title <- decode.field(2, decode.string)
   use content <- decode.field(3, decode.string)
-  use expires_at <- decode.field(4, decode.int)
-  use updated_at <- decode.field(5, decode.int)
-  use created_at <- decode.field(6, decode.int)
+  use version <- decode.field(4, decode.int)
+  use expires_at <- decode.field(5, decode.int)
+  use updated_at <- decode.field(6, decode.int)
+  use created_at <- decode.field(7, decode.int)
   decode.success(GetSnippet(
     id:,
     author:,
     title:,
     content:,
+    version:,
     expires_at:,
     updated_at:,
     created_at:,
@@ -104,23 +110,25 @@ pub fn get_snippet_decoder() -> decode.Decoder(GetSnippet) {
 }
 
 pub fn update_snippet(
+  title title: String,
+  content content: String,
   id id: Int,
-  title title: Option(String),
-  content content: Option(String),
+  version version: Int,
 ) {
   let sql =
     "UPDATE snippets
-SET title = COALESCE($2, title), content = COALESCE($3, content)
-WHERE id = $1"
+SET title = $1, content = $2, version = version + 1
+WHERE id = $3 AND version = $4"
   #(sql, [
+    dev.ParamString(title),
+    dev.ParamString(content),
     dev.ParamInt(id),
-    dev.ParamNullable(option.map(title, fn(v) { dev.ParamString(v) })),
-    dev.ParamNullable(option.map(content, fn(v) { dev.ParamString(v) })),
+    dev.ParamInt(version),
   ])
 }
 
 pub fn delete_snippet(id id: Int) {
-  let sql = "DELETE from snippets where id = $1"
+  let sql = "DELETE FROM snippets WHERE id = $1"
   #(sql, [dev.ParamInt(id)])
 }
 

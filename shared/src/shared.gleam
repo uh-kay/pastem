@@ -9,6 +9,7 @@ pub type Snippet {
     author: Int,
     title: String,
     content: String,
+    version: Int,
     expires_at: Int,
     updated_at: Int,
     created_at: Int,
@@ -21,6 +22,7 @@ pub fn snippet_to_json(snippet: Snippet) -> json.Json {
     author:,
     title:,
     content:,
+    version:,
     expires_at:,
     updated_at:,
     created_at:,
@@ -30,6 +32,7 @@ pub fn snippet_to_json(snippet: Snippet) -> json.Json {
     #("author", json.int(author)),
     #("title", json.string(title)),
     #("content", json.string(content)),
+    #("version", json.int(version)),
     #("expires_at", json.int(expires_at)),
     #("updated_at", json.int(updated_at)),
     #("created_at", json.int(created_at)),
@@ -41,6 +44,7 @@ pub fn snippet_decoder() -> decode.Decoder(Snippet) {
   use author <- decode.field("author", decode.int)
   use title <- decode.field("title", decode.string)
   use content <- decode.field("content", decode.string)
+  use version <- decode.field("version", decode.int)
   use expires_at <- decode.field("expires_at", decode.int)
   use updated_at <- decode.field("updated_at", decode.int)
   use created_at <- decode.field("created_at", decode.int)
@@ -49,6 +53,7 @@ pub fn snippet_decoder() -> decode.Decoder(Snippet) {
     author:,
     title:,
     content:,
+    version:,
     expires_at:,
     updated_at:,
     created_at:,

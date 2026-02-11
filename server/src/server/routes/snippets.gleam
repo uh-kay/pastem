@@ -2,7 +2,7 @@ import gleam/dynamic/decode
 import gleam/http
 import gleam/int
 import gleam/json
-import gleam/option
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/time/duration
 import gleam/time/timestamp
@@ -115,13 +115,13 @@ type UpdateSnippet {
 fn update_snippet_decoder() -> decode.Decoder(UpdateSnippet) {
   use title <- decode.optional_field(
     "title",
-    option.None,
-    decode.map(decode.string, option.Some),
+    None,
+    decode.map(decode.string, Some),
   )
   use content <- decode.optional_field(
     "content",
-    option.None,
-    decode.map(decode.string, option.Some),
+    None,
+    decode.map(decode.string, Some),
   )
   decode.success(UpdateSnippet(title:, content:))
 }
@@ -137,15 +137,20 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
 
     let _ =
       case input.title, input.content {
-        option.Some(title), _ -> {
+        Some(title), Some(content) -> {
+          validator.new()
+          |> snippets.validate_title(title)
+          |> snippets.validate_content(content)
+        }
+        Some(title), None -> {
           validator.new()
           |> snippets.validate_title(title)
         }
-        _, option.Some(content) -> {
+        None, Some(content) -> {
           validator.new()
           |> snippets.validate_content(content)
         }
-        option.None, option.None -> validator.new()
+        None, None -> validator.new()
       }
       |> validator.valid
 
@@ -155,7 +160,11 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
   }
 
   case result {
-    Ok(_) -> helpers.message_response("snippet updated", 200)
+    Ok(row) ->
+      case row.count {
+        1 -> helpers.message_response("snippet updated", 200)
+        _ -> helpers.error_response("edit conflict", 409)
+      }
     Error(err) -> errors.handle_error(req, err)
   }
 }
