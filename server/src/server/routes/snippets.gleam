@@ -2,6 +2,7 @@ import gleam/dynamic/decode
 import gleam/http
 import gleam/int
 import gleam/json
+import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/time/duration
@@ -57,7 +58,15 @@ fn view_snippet(ctx: context.Context, req: wisp.Request, id: String) {
 }
 
 fn list_snippets(ctx: context.Context, req: wisp.Request) {
-  case snippets.list_snippets(ctx) {
+  let result = {
+    let queries = wisp.get_query(req)
+    let limit = parse_int_query(queries, "limit", 20)
+    let offset = parse_int_query(queries, "offset", 0)
+
+    snippets.list_snippets(ctx, limit, offset)
+  }
+
+  case result {
     Ok(snippets) -> {
       snippets
       |> json.array(shared.snippet_to_json)
@@ -187,4 +196,11 @@ fn parse_id(id: String) {
     Ok(id) -> Ok(id)
     Error(_) -> Error(errors.BadRequest("invalid id"))
   }
+}
+
+fn parse_int_query(queries, key, fallback) {
+  list.key_find(queries, key)
+  |> result.unwrap("")
+  |> int.parse()
+  |> result.unwrap(fallback)
 }

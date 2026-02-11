@@ -49,8 +49,8 @@ pub fn validate_ttl(validator: validator.Validator, ttl: Int) {
   )
 }
 
-pub fn list_snippets(ctx: context.Context) {
-  case sql.get_snippets(20, 0) |> db.query(ctx.db, _) {
+pub fn list_snippets(ctx: context.Context, limit, offset) {
+  case sql.get_snippets(limit, offset) |> db.query(ctx.db, _) {
     Ok(pog.Returned(0, _)) -> Error(errors.NotFound("snippet"))
     Ok(rows) ->
       Ok({
