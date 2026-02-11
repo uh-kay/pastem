@@ -1,17 +1,13 @@
-import argus
-import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
 import gleam/json
 import gleam/result
 import gleam/time/duration
 import server/context
-import server/db
 import server/errors
 import server/helpers
 import server/models/tokens
 import server/models/users
-import server/sql
 import validator/validator
 import wisp
 
@@ -51,27 +47,9 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
       |> users.validate_password(input.password)
       |> validator.valid
 
-    use _ <- result.try(case validator.valid(validation) {
-      True -> Ok(Nil)
-      False -> Error(errors.ValidationError(validation.errors))
-    })
+    use password_bits <- result.try(users.hash_password(input.password))
 
-    use password <- result.try(
-      argus.hasher()
-      |> argus.hash(input.password, argus.gen_salt())
-      |> result.map_error(errors.HashError),
-    )
-
-    let password_bits = password.encoded_hash |> bit_array.from_string
-
-    sql.create_user(
-      input.username,
-      input.email,
-      password_bits,
-      helpers.current_time(),
-    )
-    |> db.exec(ctx.db, _)
-    |> result.map_error(errors.DatabaseError)
+    users.create_user(ctx, input.username, input.email, password_bits)
   }
 
   case result {

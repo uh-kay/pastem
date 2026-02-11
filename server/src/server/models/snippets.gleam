@@ -139,6 +139,30 @@ pub fn update_snippet(
   }
 }
 
+// pub fn update_snippet_transaction(
+//   ctx: context.Context,
+//   title: option.Option(String),
+//   content: option.Option(String),
+//   id: Int,
+// ) {
+//   case title, content {
+//     option.None, option.None ->
+//       Error(errors.BadRequest("missing title and content"))
+//     _, _ ->
+//       {
+//         use conn <- pog.transaction(ctx.db)
+
+//         sql.update_snippet(id, title, content)
+//         |> db.exec(conn, _)
+//         |> result.map_error(errors.DatabaseError)
+//       }
+//       |> result.map_error(fn(err) { case err {
+//         pog.TransactionQueryError(err) -> errors.DatabaseError(err)
+//         pog.TransactionRolledBack(err) -> todo as "transaction error"
+//       }})
+//   }
+// }
+
 pub fn delete_snippet(ctx: context.Context, id: Int) {
   sql.delete_snippet(id)
   |> db.exec(ctx.db, _)

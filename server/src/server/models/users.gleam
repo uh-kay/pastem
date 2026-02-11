@@ -6,6 +6,7 @@ import gleam/string
 import server/context
 import server/db
 import server/errors
+import server/helpers
 import server/sql
 import shared
 import validator/validator
@@ -52,6 +53,21 @@ pub fn validate_password(validator: validator.Validator, password: String) {
     "password",
     "must not be more than 255 bytes long",
   )
+}
+
+pub fn hash_password(password) {
+  use password <- result.try(
+    argus.hasher()
+    |> argus.hash(password, argus.gen_salt())
+    |> result.map_error(errors.HashError),
+  )
+  Ok(password.encoded_hash |> bit_array.from_string)
+}
+
+pub fn create_user(ctx: context.Context, username, email, password) {
+  sql.create_user(username, email, password, helpers.current_time())
+  |> db.exec(ctx.db, _)
+  |> result.map_error(errors.DatabaseError)
 }
 
 pub fn get_user(ctx: context.Context, email: String) {
