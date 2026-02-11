@@ -89,17 +89,12 @@ fn create_snippet(ctx: context.Context, req: wisp.Request) {
       )),
     )
 
-    let validation = {
+    let _ =
       validator.new()
       |> snippets.validate_title(input.title)
       |> snippets.validate_content(input.content)
       |> snippets.validate_ttl(input.ttl)
-    }
-
-    use _ <- result.try(case validator.valid(validation) {
-      True -> Ok(Nil)
-      False -> Error(errors.ValidationError(validation.errors))
-    })
+      |> validator.valid
 
     let expires_at =
       timestamp.add(timestamp.system_time(), duration.hours(input.ttl))
@@ -140,7 +135,7 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
       |> result.replace_error(errors.BadRequest("missing title and content")),
     )
 
-    let validation = {
+    let _ =
       case input.title, input.content {
         option.Some(title), _ -> {
           validator.new()
@@ -152,12 +147,7 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
         }
         option.None, option.None -> validator.new()
       }
-    }
-
-    use _ <- result.try(case validator.valid(validation) {
-      True -> Ok(Nil)
-      False -> Error(errors.ValidationError(validation.errors))
-    })
+      |> validator.valid
 
     use id <- result.try(parse_id(id))
 

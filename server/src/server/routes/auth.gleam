@@ -44,12 +44,12 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
       )),
     )
 
-    let validation = {
+    let _ =
       validator.new()
       |> users.validate_username(input.username)
       |> users.validate_email(input.email)
       |> users.validate_password(input.password)
-    }
+      |> validator.valid
 
     use _ <- result.try(case validator.valid(validation) {
       True -> Ok(Nil)
@@ -106,16 +106,11 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
       Error(_) -> Error(errors.BadRequest("failed to decode body"))
     })
 
-    let validation = {
+    let _ =
       validator.new()
       |> users.validate_email(input.email)
       |> users.validate_password(input.password)
-    }
-
-    use _ <- result.try(case validator.valid(validation) {
-      True -> Ok(Nil)
-      False -> Error(errors.ValidationError(validation.errors))
-    })
+      |> validator.valid
 
     use user <- result.try(users.verify_user(ctx, input.email, input.password))
 

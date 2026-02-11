@@ -1,5 +1,6 @@
 import gleam/dict
 import gleam/regexp
+import server/errors
 
 pub type Validator {
   Validator(errors: dict.Dict(String, String))
@@ -18,7 +19,10 @@ pub fn email_rx() {
 }
 
 pub fn valid(validator: Validator) {
-  dict.is_empty(validator.errors)
+  case dict.is_empty(validator.errors) {
+    True -> Ok(Nil)
+    False -> Error(errors.ValidationError(validator.errors))
+  }
 }
 
 pub fn add_error(validator: Validator, key: String, message: String) {
