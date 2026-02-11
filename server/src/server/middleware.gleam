@@ -30,7 +30,7 @@ pub fn log_request(
   let res = handler()
   errors.format_log(req, option.Some(res), "")
   |> wisp.log_info
-  handler()
+  res
 }
 
 pub fn require_auth(
