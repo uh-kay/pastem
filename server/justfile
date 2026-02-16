@@ -1,0 +1,10 @@
+set dotenv-load := true
+
+dev:
+    (cd ../client && just build) && just run
+
+run:
+    gleam run
+
+style:
+    ./bin/tailwindcss-linux-x64 -i priv/static/server/input.css -o priv/static/server/output.css --minify --watch

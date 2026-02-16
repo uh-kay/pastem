@@ -1,0 +1,5 @@
+build:
+    gleam run -m lustre/dev build --outdir=../server/priv/static
+
+build-minify:
+    gleam run -m lustre/dev build --outdir=../server/priv/static --minify
