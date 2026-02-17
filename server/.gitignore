@@ -3,6 +3,7 @@
 /build
 erl_crash.dump
 .env
+/bin
 
 #Added automatically by Lustre Dev Tools
 /.lustre
