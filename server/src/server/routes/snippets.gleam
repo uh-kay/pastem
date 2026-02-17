@@ -1,44 +1,28 @@
-import gleam/dynamic/decode
-import gleam/http
+import formal/form.{type Form}
+import gleam/dynamic/decode.{type Decoder}
+import gleam/http.{Post}
+import gleam/http/request
+import gleam/httpc
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
 import gleam/result
+import gleam/string_tree
 import gleam/time/duration
 import gleam/time/timestamp
-import server/context
-import server/errors
+import lustre/attribute
+import lustre/element
+import lustre/element/html
+import server/context.{type Context}
+import server/errors.{BadRequest, InternalServerError, NotFound, Unauthorized}
 import server/helpers
-import server/middleware
 import server/models/snippets
-import shared
+import shared.{type Snippet}
 import validator/validator
-import wisp
+import wisp.{type Request}
 
-pub fn snippets(ctx: context.Context, req: wisp.Request, id: String) {
-  case req.method, id {
-    http.Get, "" -> list_snippets(ctx, req)
-    http.Get, id -> view_snippet(ctx, req, id)
-
-    http.Post, _ -> {
-      use req, ctx <- middleware.require_auth(req, ctx)
-      create_snippet(ctx, req)
-    }
-    http.Patch, id -> {
-      use req, ctx <- middleware.require_admin_or_owner(req, ctx, id)
-      update_snippet(ctx, req, id)
-    }
-    http.Delete, id -> {
-      use req, ctx <- middleware.require_admin_or_owner(req, ctx, id)
-      delete_snippet(ctx, req, id)
-    }
-    _, _ ->
-      wisp.method_not_allowed([http.Get, http.Post, http.Patch, http.Delete])
-  }
-}
-
-fn view_snippet(ctx: context.Context, req: wisp.Request, id: String) {
+pub fn get_snippet(ctx: Context, req: Request, id: String) {
   let result = {
     use id <- result.try(parse_id(id))
 
@@ -57,11 +41,11 @@ fn view_snippet(ctx: context.Context, req: wisp.Request, id: String) {
   }
 }
 
-fn list_snippets(ctx: context.Context, req: wisp.Request) {
+pub fn list_snippets(ctx: Context, req: Request) {
   let result = {
     let queries = wisp.get_query(req)
-    let limit = parse_int_query(queries, "limit", 20)
-    let offset = parse_int_query(queries, "offset", 0)
+    let limit = query_to_int(queries, "limit", 20)
+    let offset = query_to_int(queries, "offset", 0)
 
     snippets.list_snippets(ctx, limit, offset)
   }
@@ -76,39 +60,47 @@ fn list_snippets(ctx: context.Context, req: wisp.Request) {
   }
 }
 
-type CreateSnippet {
-  CreateSnippet(title: String, content: String, ttl: Int)
+type StoreSnippet {
+  StoreSnippet(title: String, content: String, ttl: Int)
+}
+
+fn store_snippet_to_json(store_snippet: StoreSnippet) -> json.Json {
+  let StoreSnippet(title:, content:, ttl:) = store_snippet
+  json.object([
+    #("title", json.string(title)),
+    #("content", json.string(content)),
+    #("ttl", json.int(ttl)),
+  ])
 }
 
 fn create_snippet_decoder() -> decode.Decoder(CreateSnippet) {
   use title <- decode.field("title", decode.string)
   use content <- decode.field("content", decode.string)
   use ttl <- decode.field("ttl", decode.int)
-  decode.success(CreateSnippet(title:, content:, ttl:))
+  decode.success(StoreSnippet(title:, content:, ttl:))
 }
 
-fn create_snippet(ctx: context.Context, req: wisp.Request) {
+pub fn store_snippet(ctx: Context, req: Request) {
   use json <- wisp.require_json(req)
 
   let result = {
-    use input <- result.try(
-      decode.run(json, create_snippet_decoder())
-      |> result.replace_error(errors.BadRequest(
-        "missing title, content, or ttl",
-      )),
+    result.try(
+      decode.run(json, store_snippet_decoder())
+        |> result.replace_error(BadRequest("missing title, content, or ttl")),
+      fn(input) {
+        let _ =
+          validator.new()
+          |> snippets.validate_title(input.title)
+          |> snippets.validate_content(input.content)
+          |> snippets.validate_ttl(input.ttl)
+          |> validator.valid
+
+        let expires_at =
+          timestamp.add(timestamp.system_time(), duration.hours(input.ttl))
+
+        snippets.create_snippet(ctx, input.title, input.content, expires_at)
+      },
     )
-
-    let _ =
-      validator.new()
-      |> snippets.validate_title(input.title)
-      |> snippets.validate_content(input.content)
-      |> snippets.validate_ttl(input.ttl)
-      |> validator.valid
-
-    let expires_at =
-      timestamp.add(timestamp.system_time(), duration.hours(input.ttl))
-
-    snippets.create_snippet(ctx, input.title, input.content, expires_at)
   }
 
   case result {
@@ -118,10 +110,10 @@ fn create_snippet(ctx: context.Context, req: wisp.Request) {
 }
 
 type UpdateSnippet {
-  UpdateSnippet(title: option.Option(String), content: option.Option(String))
+  UpdateSnippet(title: Option(String), content: Option(String))
 }
 
-fn update_snippet_decoder() -> decode.Decoder(UpdateSnippet) {
+fn update_snippet_decoder() -> Decoder(UpdateSnippet) {
   use title <- decode.optional_field(
     "title",
     None,
@@ -135,13 +127,13 @@ fn update_snippet_decoder() -> decode.Decoder(UpdateSnippet) {
   decode.success(UpdateSnippet(title:, content:))
 }
 
-fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
+pub fn update_snippet(ctx: Context, req: Request, id: String) {
   use json <- wisp.require_json(req)
 
   let result = {
     use input <- result.try(
       decode.run(json, update_snippet_decoder())
-      |> result.replace_error(errors.BadRequest("missing title and content")),
+      |> result.replace_error(BadRequest("missing title and content")),
     )
 
     let _ =
@@ -178,7 +170,7 @@ fn update_snippet(ctx: context.Context, req: wisp.Request, id: String) {
   }
 }
 
-fn delete_snippet(ctx: context.Context, req: wisp.Request, id: String) {
+pub fn delete_snippet(ctx: Context, req: Request, id: String) {
   let result = {
     use id <- result.try(parse_id(id))
 
@@ -194,11 +186,11 @@ fn delete_snippet(ctx: context.Context, req: wisp.Request, id: String) {
 fn parse_id(id: String) {
   case int.parse(id) {
     Ok(id) -> Ok(id)
-    Error(_) -> Error(errors.BadRequest("invalid id"))
+    Error(_) -> Error(BadRequest("invalid id"))
   }
 }
 
-fn parse_int_query(queries, key, fallback) {
+fn query_to_int(queries, key, fallback) {
   list.key_find(queries, key)
   |> result.unwrap("")
   |> int.parse()
