@@ -17,6 +17,9 @@ import wisp/wisp_mist
 pub fn main() -> Nil {
   wisp.configure_logger()
 
+  let assert Ok(priv_directory) = wisp.priv_directory("server")
+  let static_directory = priv_directory <> "/static"
+
   let db_pool_name = process.new_name("db_pool")
   let assert Ok(database_url) = envoy.get("DATABASE_URL")
   let assert Ok(pog_config) = pog.url_config(db_pool_name, database_url)
@@ -29,7 +32,7 @@ pub fn main() -> Nil {
   let assert Ok(port) = int.parse(port_str)
 
   let context = context.Context(db.Pog(con), option.None, option.None)
-  let handler = router.handle_request(context, _)
+  let handler = router.handle_request(context, static_directory, _)
 
   let assert Ok(_) =
     handler

@@ -3,6 +3,7 @@ import server/context.{type Context}
 import server/middleware
 import server/routes/auth
 import server/routes/health
+import server/routes/home
 import server/routes/snippets
 import wisp.{type Request, type Response}
 
@@ -15,6 +16,14 @@ pub fn handle_request(
 
   case req.method, wisp.path_segments(req) {
     _, ["v1", ..rest] -> api_routes(ctx, req, rest)
+
+    Get, ["snippets", "create"] -> snippets.create_snippet_page()
+    Post, ["snippets", "create"] -> snippets.create_snippet_submit(req)
+    _, ["snippets", "create"] -> wisp.method_not_allowed([Get, Post])
+
+    Get, ["snippets", id] -> snippets.snippet_page(id)
+
+    Get, _ -> home.index()
 
     _, _ -> wisp.not_found()
   }

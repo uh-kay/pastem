@@ -35,7 +35,7 @@ fn check_request(
     option.None -> req
   }
 
-  let res = router.handle_request(ctx, req)
+  let res = router.handle_request(ctx, todo, req)
 
   // set log level to critical to suppress error
   logging.set_level(logging.Critical)

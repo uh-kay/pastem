@@ -39,6 +39,10 @@ pub fn snippet_to_json(snippet: Snippet) -> json.Json {
   ])
 }
 
+pub fn snippet_list_to_json(snippets) {
+  json.array(snippets, snippet_to_json)
+}
+
 pub fn snippet_decoder() -> decode.Decoder(Snippet) {
   use id <- decode.field("id", decode.int)
   use author <- decode.field("author", decode.int)
@@ -58,6 +62,16 @@ pub fn snippet_decoder() -> decode.Decoder(Snippet) {
     updated_at:,
     created_at:,
   ))
+}
+
+pub fn snippet_list_decoder() {
+  use snippets <- decode.field("snippets", decode.list(snippet_decoder()))
+  decode.success(snippets)
+}
+
+pub fn snippet_item_decoder() {
+  use snippet <- decode.field("snippet", snippet_decoder())
+  decode.success(snippet)
 }
 
 pub type User {
