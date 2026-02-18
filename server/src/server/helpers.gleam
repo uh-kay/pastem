@@ -1,5 +1,7 @@
+import envoy
 import gleam/int
 import gleam/json.{type Json}
+import gleam/result
 import gleam/string_tree.{type StringTree}
 import gleam/time/timestamp
 import lustre/attribute
@@ -11,6 +13,10 @@ pub fn current_time() -> Int {
   let #(now, _) =
     timestamp.system_time() |> timestamp.to_unix_seconds_and_nanoseconds()
   now
+}
+
+pub fn api_url() {
+  result.unwrap(envoy.get("API_URL"), "")
 }
 
 pub fn message_response(message: String, status: Int) -> Response {

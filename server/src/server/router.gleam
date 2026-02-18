@@ -1,9 +1,10 @@
 import gleam/http.{Delete, Get, Patch, Post}
 import server/context.{type Context}
 import server/middleware
+import server/page/home
+import server/page/snippet_page
 import server/routes/auth
 import server/routes/health
-import server/routes/home
 import server/routes/snippets
 import wisp.{type Request, type Response}
 
@@ -17,13 +18,13 @@ pub fn handle_request(
   case req.method, wisp.path_segments(req) {
     _, ["v1", ..rest] -> api_routes(ctx, req, rest)
 
-    Get, ["snippets", "create"] -> snippets.create_snippet_page()
-    Post, ["snippets", "create"] -> snippets.create_snippet_submit(req)
+    Get, ["snippets", "create"] -> snippet_page.create()
+    Post, ["snippets", "create"] -> snippet_page.create_snippet_submit(req)
     _, ["snippets", "create"] -> wisp.method_not_allowed([Get, Post])
 
-    Get, ["snippets", id] -> snippets.snippet_page(id)
+    Get, ["snippets", id] -> snippet_page.show(id)
 
-    Get, _ -> home.index()
+    Get, _ -> home.home_page()
 
     _, _ -> wisp.not_found()
   }

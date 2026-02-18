@@ -2009,10 +2009,17 @@ class Handler extends CustomType {
     this.message = message;
   }
 }
+class Never extends CustomType {
+  constructor(kind) {
+    super();
+    this.kind = kind;
+  }
+}
 var attribute_kind = 0;
 var property_kind = 1;
 var event_kind = 2;
 var never_kind = 0;
+var never = /* @__PURE__ */ new Never(never_kind);
 var always_kind = 2;
 function merge(loop$attributes, loop$merged) {
   while (true) {
@@ -2141,6 +2148,9 @@ function prepare(attributes) {
 }
 function attribute(name, value) {
   return new Attribute(attribute_kind, name, value);
+}
+function event(name, handler, include, prevent_default, stop_propagation, debounce, throttle) {
+  return new Event2(event_kind, name, handler, include, prevent_default, stop_propagation, debounce, throttle);
 }
 
 // build/dev/javascript/lustre/lustre/attribute.mjs
@@ -2607,12 +2617,12 @@ class PropertyChanged extends CustomType {
 }
 var ServerMessage$isPropertyChanged = (value) => value instanceof PropertyChanged;
 class EventFired extends CustomType {
-  constructor(kind, path, name, event) {
+  constructor(kind, path, name, event2) {
     super();
     this.kind = kind;
     this.path = path;
     this.name = name;
-    this.event = event;
+    this.event = event2;
   }
 }
 var ServerMessage$isEventFired = (value) => value instanceof EventFired;
@@ -2763,8 +2773,8 @@ function matches(path, candidates) {
     return do_matches(to_string4(path), candidates);
   }
 }
-function event(path, event2) {
-  return do_to_string(false, path, prepend(separator_event, prepend(event2, empty_list)));
+function event2(path, event3) {
+  return do_to_string(false, path, prepend(separator_event, prepend(event3, empty_list)));
 }
 
 // build/dev/javascript/lustre/lustre/vdom/cache.mjs
@@ -2865,14 +2875,14 @@ function update_subtree(parent, path, mapper, events2) {
   return new Events(parent.handlers, children);
 }
 function do_add_event(handlers, path, name, handler) {
-  return insert2(handlers, event(path, name), handler);
+  return insert2(handlers, event2(path, name), handler);
 }
 function add_event(events2, path, name, handler) {
   let handlers = do_add_event(events2.handlers, path, name, handler);
   return new Events(handlers, events2.children);
 }
 function do_remove_event(handlers, path, name) {
-  return remove(handlers, event(path, name));
+  return remove(handlers, event2(path, name));
 }
 function remove_event(events2, path, name) {
   let handlers = do_remove_event(events2.handlers, path, name);
@@ -3145,11 +3155,11 @@ function replace_child(cache, events2, parent, child_index, prev, next) {
   let events$1 = remove_child(cache, events2, parent, child_index, prev);
   return add_child(cache, events$1, parent, child_index, next);
 }
-function dispatch(cache, event2) {
-  let next_dispatched_paths = prepend(event2.path, cache.next_dispatched_paths);
+function dispatch(cache, event3) {
+  let next_dispatched_paths = prepend(event3.path, cache.next_dispatched_paths);
   let cache$1 = new Cache(cache.events, cache.vdoms, cache.old_vdoms, cache.dispatched_paths, next_dispatched_paths);
-  if (event2 instanceof DecodedEvent) {
-    let handler = event2.handler;
+  if (event3 instanceof DecodedEvent) {
+    let handler = event3.handler;
     return [cache$1, new Ok2(handler)];
   } else {
     return [cache$1, error_nil];
@@ -3195,12 +3205,12 @@ function get_handler(loop$events, loop$path, loop$mapper) {
     }
   }
 }
-function decode2(cache, path, name, event2) {
+function decode2(cache, path, name, event3) {
   let parts = split_subtree_path(path + separator_event + name);
   let $ = get_handler(cache.events, parts, identity3);
   if ($ instanceof Ok2) {
     let handler = $[0];
-    let $1 = run(event2, handler);
+    let $1 = run(event3, handler);
     if ($1 instanceof Ok2) {
       let handler$1 = $1[0];
       return new DecodedEvent(path, handler$1);
@@ -3211,8 +3221,8 @@ function decode2(cache, path, name, event2) {
     return new DispatchedEvent(path);
   }
 }
-function handle(cache, path, name, event2) {
-  let _pipe = decode2(cache, path, name, event2);
+function handle(cache, path, name, event3) {
+  let _pipe = decode2(cache, path, name, event3);
   return ((_capture) => {
     return dispatch(cache, _capture);
   })(_pipe);
@@ -4628,7 +4638,7 @@ class Reconciler {
         addEventListener(node, name, handleEvent, { passive });
         this.#updateDebounceThrottle(throttles, name, throttleDelay);
         this.#updateDebounceThrottle(debouncers, name, debounceDelay);
-        handlers.set(name, (event2) => this.#handleEvent(attribute3, event2));
+        handlers.set(name, (event3) => this.#handleEvent(attribute3, event3));
         break;
       }
     }
@@ -4649,8 +4659,8 @@ class Reconciler {
       map8.delete(name);
     }
   }
-  #handleEvent(attribute3, event2) {
-    const { currentTarget, type } = event2;
+  #handleEvent(attribute3, event3) {
+    const { currentTarget, type } = event3;
     const { debouncers, throttles } = currentTarget[meta];
     const path = getPath(currentTarget);
     const {
@@ -4659,37 +4669,37 @@ class Reconciler {
       include
     } = attribute3;
     if (prevent.kind === always_kind)
-      event2.preventDefault();
+      event3.preventDefault();
     if (stop.kind === always_kind)
-      event2.stopPropagation();
+      event3.stopPropagation();
     if (type === "submit") {
-      event2.detail ??= {};
-      event2.detail.formData = [
-        ...new FormData(event2.target, event2.submitter).entries()
+      event3.detail ??= {};
+      event3.detail.formData = [
+        ...new FormData(event3.target, event3.submitter).entries()
       ];
     }
-    const data2 = this.#decodeEvent(event2, path, type, include);
+    const data2 = this.#decodeEvent(event3, path, type, include);
     const throttle = throttles.get(type);
     if (throttle) {
       const now = Date.now();
       const last = throttle.last || 0;
       if (now > last + throttle.delay) {
         throttle.last = now;
-        throttle.lastEvent = event2;
-        this.#dispatch(event2, data2);
+        throttle.lastEvent = event3;
+        this.#dispatch(event3, data2);
       }
     }
     const debounce = debouncers.get(type);
     if (debounce) {
       clearTimeout(debounce.timeout);
       debounce.timeout = setTimeout(() => {
-        if (event2 === throttles.get(type)?.lastEvent)
+        if (event3 === throttles.get(type)?.lastEvent)
           return;
-        this.#dispatch(event2, data2);
+        this.#dispatch(event3, data2);
       }, debounce.delay);
     }
     if (!throttle && !debounce) {
-      this.#dispatch(event2, data2);
+      this.#dispatch(event3, data2);
     }
   }
 }
@@ -4700,10 +4710,10 @@ var markerComment = (marker, key) => {
     return ` ${marker} `;
   }
 };
-var handleEvent = (event2) => {
-  const { currentTarget, type } = event2;
+var handleEvent = (event3) => {
+  const { currentTarget, type } = event3;
   const handler = currentTarget[meta].handlers.get(type);
-  handler(event2);
+  handler(event3);
 };
 var syncedBooleanAttribute = (name) => {
   return {
@@ -4962,33 +4972,33 @@ class Runtime {
     this.#model = model;
     this.#view = view;
     this.#update = update2;
-    this.root.addEventListener("context-request", (event2) => {
-      if (!(event2.context && event2.callback))
+    this.root.addEventListener("context-request", (event3) => {
+      if (!(event3.context && event3.callback))
         return;
-      if (!this.#contexts.has(event2.context))
+      if (!this.#contexts.has(event3.context))
         return;
-      event2.stopImmediatePropagation();
-      const context = this.#contexts.get(event2.context);
-      if (event2.subscribe) {
+      event3.stopImmediatePropagation();
+      const context = this.#contexts.get(event3.context);
+      if (event3.subscribe) {
         const unsubscribe = () => {
-          context.subscribers = context.subscribers.filter((subscriber) => subscriber !== event2.callback);
+          context.subscribers = context.subscribers.filter((subscriber) => subscriber !== event3.callback);
         };
-        context.subscribers.push([event2.callback, unsubscribe]);
-        event2.callback(context.value, unsubscribe);
+        context.subscribers.push([event3.callback, unsubscribe]);
+        event3.callback(context.value, unsubscribe);
       } else {
-        event2.callback(context.value);
+        event3.callback(context.value);
       }
     });
-    const decodeEvent = (event2, path, name) => decode2(this.#cache, path, name, event2);
-    const dispatch2 = (event2, data2) => {
+    const decodeEvent = (event3, path, name) => decode2(this.#cache, path, name, event3);
+    const dispatch2 = (event3, data2) => {
       const [cache, result] = dispatch(this.#cache, data2);
       this.#cache = cache;
       if (Result$isOk(result)) {
         const handler = Result$Ok$0(result);
         if (handler.stop_propagation)
-          event2.stopPropagation();
+          event3.stopPropagation();
         if (handler.prevent_default)
-          event2.preventDefault();
+          event3.preventDefault();
         this.dispatch(handler.message, false);
       }
     };
@@ -5008,9 +5018,9 @@ class Runtime {
       this.#tick(effects, shouldFlush);
     }
   }
-  emit(event2, data2) {
+  emit(event3, data2) {
     const target = this.root.host ?? this.root;
-    target.dispatchEvent(new CustomEvent(event2, {
+    target.dispatchEvent(new CustomEvent(event3, {
       detail: data2,
       bubbles: true,
       composed: true
@@ -5049,7 +5059,7 @@ class Runtime {
   #renderTimer = null;
   #actions = {
     dispatch: (msg) => this.dispatch(msg),
-    emit: (event2, data2) => this.emit(event2, data2),
+    emit: (event3, data2) => this.emit(event3, data2),
     select: () => {},
     root: () => this.root,
     provide: (key, value) => this.provide(key, value)
@@ -5147,8 +5157,8 @@ class Spa {
   dispatch(msg) {
     this.#runtime.dispatch(msg);
   }
-  emit(event2, data2) {
-    this.#runtime.emit(event2, data2);
+  emit(event3, data2) {
+    this.#runtime.emit(event3, data2);
   }
 }
 var start = ({ init, update: update2, view }, selector, flags) => {
@@ -5262,8 +5272,8 @@ class Runtime2 {
       }
       return this.#dispatch(Result$Ok$0(result));
     } else if (ServerMessage$isEventFired(msg)) {
-      const { path, name, event: event2 } = msg;
-      const [cache, result] = handle(this.#cache, path, name, event2);
+      const { path, name, event: event3 } = msg;
+      const [cache, result] = handle(this.#cache, path, name, event3);
       this.#cache = cache;
       if (!Result$isOk(result)) {
         return this.#vdom;
@@ -5347,6 +5357,16 @@ function start4(app, selector, start_args) {
   return guard(!is_browser(), new Error2(new NotABrowser), () => {
     return start(app, selector, start_args);
   });
+}
+
+// build/dev/javascript/lustre/lustre/event.mjs
+function on(name, handler) {
+  return event(name, map3(handler, (msg) => {
+    return new Handler(false, false, msg);
+  }), empty_list, never, never, 0, 0);
+}
+function on_click(msg) {
+  return on("click", success(msg));
 }
 // build/dev/javascript/gleam_javascript/gleam_javascript_ffi.mjs
 class PromiseLayer {
@@ -6189,12 +6209,20 @@ function snippet_list_decoder() {
 var FILEPATH = "src/client.gleam";
 
 class Model extends CustomType {
-  constructor(snippets, saving, error) {
+  constructor(snippets, current_snippet, current_route, saving, error) {
     super();
     this.snippets = snippets;
+    this.current_snippet = current_snippet;
+    this.current_route = current_route;
     this.saving = saving;
     this.error = error;
   }
+}
+
+class Index2 extends CustomType {
+}
+
+class SnippetDetail extends CustomType {
 }
 
 class ServerSavedSnippet extends CustomType {
@@ -6202,6 +6230,9 @@ class ServerSavedSnippet extends CustomType {
     super();
     this[0] = $0;
   }
+}
+
+class UserClickedSnippet extends CustomType {
 }
 class CreateSnippet extends CustomType {
   constructor(title2, content) {
@@ -6211,7 +6242,7 @@ class CreateSnippet extends CustomType {
   }
 }
 function init(snippets) {
-  let model = new Model(snippets, false, new None);
+  let model = new Model(snippets, new None, new Index2, false, new None);
   return [model, none()];
 }
 function create_snippet_to_json(create_snippet) {
@@ -6231,14 +6262,38 @@ function save_snippet(snippet) {
 function update2(model, msg) {
   if (msg instanceof ServerSavedSnippet) {
     return [
-      new Model(model.snippets, model.saving, new Some("failed to save snippet")),
+      new Model(model.snippets, model.current_snippet, model.current_route, model.saving, new Some("failed to save snippet")),
       none()
     ];
+  } else if (msg instanceof UserClickedSnippet) {
+    let _block;
+    let _pipe = querySelector("#model");
+    let _pipe$1 = map4(_pipe, innerText);
+    _block = try$(_pipe$1, (json2) => {
+      let _pipe$2 = parse2(json2, snippet_decoder());
+      return replace_error(_pipe$2, undefined);
+    });
+    let snippet = _block;
+    if (snippet instanceof Ok2) {
+      let snippet$1 = snippet[0];
+      return [
+        new Model(model.snippets, new Some(snippet$1), new SnippetDetail, model.saving, model.error),
+        none()
+      ];
+    } else {
+      return [
+        new Model(model.snippets, new None, new SnippetDetail, model.saving, model.error),
+        none()
+      ];
+    }
   } else {
     let title2 = msg.title;
     let content = msg.content;
     let snippet = new CreateSnippet(title2, content);
-    return [new Model(model.snippets, true, model.error), save_snippet(snippet)];
+    return [
+      new Model(model.snippets, model.current_snippet, model.current_route, true, model.error),
+      save_snippet(snippet)
+    ];
   }
 }
 function view_snippet_list(snippets) {
@@ -6249,17 +6304,25 @@ function view_snippet_list(snippets) {
       return li(toList([]), toList([
         a(toList([
           class$("hover:text-red-500"),
-          href("/snippets/" + to_string(item.id))
+          href("/snippets/" + to_string(item.id)),
+          on_click(new UserClickedSnippet)
         ]), toList([text3(item.title)]))
       ]));
     }));
   }
 }
 function view(model) {
-  return div(toList([]), toList([
-    h1(toList([class$("text-blue-500 text-2xl")]), toList([text3("Snippet List")])),
-    view_snippet_list(model.snippets)
-  ]));
+  let $ = model.current_route;
+  if ($ instanceof Index2) {
+    return div(toList([]), toList([
+      h1(toList([class$("text-blue-500 text-2xl")]), toList([text3("Snippet List")])),
+      view_snippet_list(model.snippets)
+    ]));
+  } else {
+    return div(toList([]), toList([
+      h1(toList([class$("text-blue-500 text-2xl")]), toList([text3("Snippet")]))
+    ]));
+  }
 }
 function main() {
   let _block;
@@ -6274,7 +6337,7 @@ function main() {
   let app = application(init, update2, view);
   let $ = start4(app, "#app", initial_items);
   if (!($ instanceof Ok2)) {
-    throw makeError("let_assert", FILEPATH, "client", 29, "main", "Pattern match failed, no pattern matched the value.", { value: $, start: 758, end: 817, pattern_start: 769, pattern_end: 774 });
+    throw makeError("let_assert", FILEPATH, "client", 29, "main", "Pattern match failed, no pattern matched the value.", { value: $, start: 766, end: 825, pattern_start: 777, pattern_end: 782 });
   }
   return;
 }
