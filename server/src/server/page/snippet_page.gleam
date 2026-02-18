@@ -1,15 +1,15 @@
-import formal/form.{type Form}
+import formal/form
 import gleam/http.{Post}
 import gleam/http/request
 import gleam/httpc
 import gleam/int
 import gleam/json
-import gleam/list
 import gleam/result
 import gleam/string_tree
 import lustre/attribute
 import lustre/element/html
 import server/api_route/snippets.{StoreSnippet}
+import server/component/input
 import server/component/layout
 import server/errors.{BadRequest, InternalServerError, NotFound, Unauthorized}
 import server/helpers
@@ -26,7 +26,7 @@ pub fn create_snippet_submit(req) {
       let result = {
         use api_req <- result.try(
           request.to("http://localhost:8000/v1/snippets")
-          |> result.replace_error(InternalServerError("internal server error")),
+          |> result.replace_error(InternalServerError("invalid URL")),
         )
 
         let body = snippets.store_snippet_to_json(data) |> json.to_string
@@ -36,7 +36,7 @@ pub fn create_snippet_submit(req) {
         |> request.set_header("content-type", "application/json")
         |> request.set_body(body)
         |> httpc.send()
-        |> result.replace_error(InternalServerError("internal server error"))
+        |> result.replace_error(InternalServerError("cannot connect to API"))
       }
       case result {
         Ok(_) -> wisp.redirect("/")
@@ -46,9 +46,10 @@ pub fn create_snippet_submit(req) {
         }
       }
     }
-    Error(err) -> {
-      echo err
-      wisp.internal_server_error()
+    Error(form) -> {
+      create_snippet_view(form)
+      |> string_tree.to_string
+      |> wisp.html_response(422)
     }
   }
 }
@@ -57,50 +58,85 @@ fn create_snippet_form() {
   form.new({
     use title <- form.field("title", form.parse_string)
     use content <- form.field("content", form.parse_string)
-    use ttl <- form.field("ttl", form.parse_int)
+    use ttl <- form.field("ttl", form.parse_string)
 
-    form.success(StoreSnippet(title:, content:, ttl:))
+    case ttl {
+      "custom" -> {
+        use custom_ttl <- form.field("custom-ttl", form.parse_int)
+        form.success(StoreSnippet(title:, content:, ttl: custom_ttl))
+      }
+      _ -> {
+        use ttl <- form.field("ttl", form.parse_int)
+        form.success(StoreSnippet(title:, content:, ttl:))
+      }
+    }
   })
 }
 
 pub fn create() {
   let form = create_snippet_form()
 
-  create_snippet_page_view(form)
+  create_snippet_view(form)
   |> string_tree.to_string
   |> wisp.html_response(200)
 }
 
-fn create_snippet_page_view(form) {
-  html.form([attribute.method("post"), attribute.class("flex flex-col")], [
-    field_input(form, "title", "text", "Title"),
-    html.label([], [
-      html.text("Content"),
-      html.textarea([attribute.name("content"), attribute.class("border")], ""),
+fn create_snippet_view(form) {
+  html.form([attribute.method("post"), attribute.class("max-w-sm mx-auto")], [
+    input.field_input(form, "title", "text", "Title", True),
+    html.div([attribute.class("mb-4")], [
+      html.label([attribute.class("block mb-2 text-sm")], [html.text("Content")]),
+      html.textarea(
+        [
+          attribute.name("content"),
+          attribute.required(True),
+          attribute.class("block rounded-md w-full px-3 py-2"),
+          attribute.class("border border-gray-400 focus:border-transparent"),
+        ],
+        "",
+      ),
     ]),
-    field_input(form, "ttl", "number", "TTL"),
-    html.button([attribute.type_("submit")], [html.text("Submit")]),
+    html.legend([attribute.class("block mb-2 text-sm")], [
+      html.text("Set expiry"),
+    ]),
+    html.div([attribute.class("mb-4")], [
+      html.label([attribute.class("mr-2")], [
+        input.radio("ttl", "1", "mr-2", [attribute.required(True)]),
+        html.text("1 hour"),
+      ]),
+      html.label([attribute.class("mr-2")], [
+        input.radio("ttl", "3", "mr-2", []),
+        html.text("3 hours"),
+      ]),
+      html.label([attribute.class("mr-2")], [
+        input.radio("ttl", "24", "mr-2", []),
+        html.text("1 day"),
+      ]),
+      input.radio("ttl", "custom", "peer mr-2", []),
+      html.label([attribute.for("ttl-custom")], [
+        html.text("Custom (hours)"),
+      ]),
+      html.input([
+        attribute.type_("number"),
+        attribute.name("custom-ttl"),
+        attribute.min("1"),
+        attribute.max("168"),
+        attribute.class("hidden mt-2 rounded-md px-3 py-2 peer-checked:flex"),
+        attribute.class("border border-gray-400 focus:border-transparent"),
+      ]),
+    ]),
+    html.button(
+      [
+        attribute.type_("submit"),
+        attribute.class("border border-transparent rounded-lg px-4 py-2"),
+        attribute.class("text-white bg-blue-500 hover:bg-blue-600"),
+      ],
+      [
+        html.text("Submit"),
+      ],
+    ),
   ])
   |> layout.page_layout_view("Create Snippet", _)
-}
-
-fn field_input(form: Form(t), name: String, kind: String, label: String) {
-  let errors = form.field_error_messages(form, name)
-
-  html.label([], [
-    html.text(label),
-    html.input([
-      attribute.class("border"),
-      attribute.type_(kind),
-      attribute.name(name),
-      attribute.value(form.field_value(form, name)),
-      case errors {
-        [] -> attribute.none()
-        _ -> attribute.aria_invalid("true")
-      },
-    ]),
-    ..list.map(errors, fn(msg) { html.small([], [html.text(msg)]) })
-  ])
 }
 
 pub fn show(id) {
@@ -130,7 +166,7 @@ pub fn show(id) {
 
   case result {
     Ok(snippet) -> {
-      layout.page_layout_view("Snippet", snippet_page_view(snippet))
+      layout.page_layout_view(snippet.title, snippet_page_view(snippet))
       |> string_tree.to_string
       |> wisp.html_response(200)
     }
@@ -148,6 +184,5 @@ pub fn show(id) {
 fn snippet_page_view(snippet: Snippet) {
   html.div([], [
     html.p([], [html.text(int.to_string(snippet.id))]),
-    html.p([], [html.text(snippet.title)]),
   ])
 }
