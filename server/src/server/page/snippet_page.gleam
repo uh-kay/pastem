@@ -9,10 +9,10 @@ import gleam/result
 import gleam/string_tree
 import lustre/attribute
 import lustre/element/html
+import server/api_route/snippets.{StoreSnippet}
 import server/component/layout
 import server/errors.{BadRequest, InternalServerError, NotFound, Unauthorized}
 import server/helpers
-import server/routes/snippets.{StoreSnippet}
 import shared.{type Snippet}
 import wisp
 

@@ -9,7 +9,7 @@ import gleam/time/timestamp
 import server/context.{type Context}
 import server/errors.{BadRequest}
 import server/helpers
-import server/models/snippets
+import server/model/snippets
 import shared
 import validator/validator
 import wisp.{type Request}

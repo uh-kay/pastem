@@ -1,6 +1,6 @@
 import birdie
 import gleeunit/should
-import server/routes/health
+import server/api_route/health
 import wisp
 
 pub fn health_handler_test() {

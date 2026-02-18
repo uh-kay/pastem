@@ -6,8 +6,8 @@ import gleam/time/duration
 import server/context
 import server/errors
 import server/helpers
-import server/models/tokens
-import server/models/users
+import server/model/tokens
+import server/model/users
 import validator/validator
 import wisp
 

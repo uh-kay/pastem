@@ -1,11 +1,11 @@
 import gleam/http.{Delete, Get, Patch, Post}
+import server/api_route/auth
+import server/api_route/health
+import server/api_route/snippets
 import server/context.{type Context}
 import server/middleware
 import server/page/home
 import server/page/snippet_page
-import server/routes/auth
-import server/routes/health
-import server/routes/snippets
 import wisp.{type Request, type Response}
 
 pub fn handle_request(
