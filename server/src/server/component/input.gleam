@@ -8,7 +8,7 @@ pub fn field_input(
   name: String,
   kind: String,
   label: String,
-  required: Bool,
+  extra_attrs: List(attribute.Attribute(a)),
 ) {
   let errors = form.field_error_messages(form, name)
 
@@ -23,12 +23,12 @@ pub fn field_input(
       ),
       attribute.type_(kind),
       attribute.name(name),
-      attribute.required(required),
       attribute.value(form.field_value(form, name)),
       case errors {
         [] -> attribute.none()
         _ -> attribute.aria_invalid("true")
       },
+      ..extra_attrs
     ]),
   ])
 }
@@ -46,4 +46,16 @@ pub fn radio(
     attribute.value(value),
     ..extra_attrs
   ])
+}
+
+pub fn textarea(
+  name name,
+  value value,
+  style style,
+  extra_attrs extra_attrs: List(attribute.Attribute(a)),
+) {
+  html.textarea(
+    [attribute.name(name), attribute.class(style), ..extra_attrs],
+    value,
+  )
 }

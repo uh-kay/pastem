@@ -5,6 +5,7 @@ import server/api_route/snippets
 import server/context.{type Context}
 import server/middleware
 import server/page/home
+import server/page/login
 import server/page/snippet_page
 import wisp.{type Request, type Response}
 
@@ -17,6 +18,9 @@ pub fn handle_request(
 
   case req.method, wisp.path_segments(req) {
     _, ["v1", ..rest] -> api_routes(ctx, req, rest)
+
+    Get, ["login"] -> login.login_page()
+    Post, ["login"] -> login.login_submit(req)
 
     Get, ["snippets", "create"] -> snippet_page.create()
     Post, ["snippets", "create"] -> snippet_page.create_snippet_submit(req)

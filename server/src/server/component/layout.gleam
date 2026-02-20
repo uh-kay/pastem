@@ -1,8 +1,9 @@
 import lustre/attribute
 import lustre/element
 import lustre/element/html
+import server/component/navbar
 
-pub fn page_layout_view(title, content) {
+pub fn page_layout_view(content) {
   html.html([], [
     html.head([], [
       html.title([], "Create Snippet"),
@@ -16,7 +17,7 @@ pub fn page_layout_view(title, content) {
       ),
     ]),
     html.body([], [
-      html.h1([], [html.text(title)]),
+      navbar.navbar(),
       content,
     ]),
   ])

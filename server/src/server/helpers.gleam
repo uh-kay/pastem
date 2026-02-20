@@ -7,6 +7,7 @@ import gleam/time/timestamp
 import lustre/attribute
 import lustre/element
 import lustre/element/html
+import server/component/layout
 import wisp.{type Response}
 
 pub fn current_time() -> Int {
@@ -29,6 +30,12 @@ pub fn json_response(data: Json, item: String, status: Int) -> Response {
   json.object([#(item, data)])
   |> json.to_string
   |> wisp.json_response(status)
+}
+
+pub fn html_response(html, status) {
+  layout.page_layout_view(html)
+  |> string_tree.to_string
+  |> wisp.html_response(status)
 }
 
 pub fn error_response(message: String, status: Int) -> Response {

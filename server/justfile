@@ -6,5 +6,8 @@ dev:
 run:
     gleam run
 
+parrot:
+    gleam run -m parrot
+
 style:
     ./bin/tailwindcss-linux-x64 -i priv/static/server/input.css -o priv/static/server/output.css --minify --watch

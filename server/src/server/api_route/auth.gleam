@@ -69,7 +69,15 @@ pub type CreateToken {
   CreateToken(email: String, password: String)
 }
 
-fn create_token_decoder() -> decode.Decoder(CreateToken) {
+pub fn create_token_to_json(create_token: CreateToken) -> json.Json {
+  let CreateToken(email:, password:) = create_token
+  json.object([
+    #("email", json.string(email)),
+    #("password", json.string(password)),
+  ])
+}
+
+pub fn create_token_decoder() -> decode.Decoder(CreateToken) {
   use email <- decode.field("email", decode.string)
   use password <- decode.field("password", decode.string)
   decode.success(CreateToken(email:, password:))

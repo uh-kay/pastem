@@ -38,11 +38,10 @@ pub fn home_page() {
   }
 
   case result {
-    Ok(snippets) -> {
-      layout.page_layout_view("", snippet_list_view(snippets))
+    Ok(snippets) ->
+      layout.page_layout_view(snippet_list_view(snippets))
       |> string_tree.to_string
       |> wisp.html_response(200)
-    }
     Error(err) -> {
       case err {
         BadRequest(_) -> helpers.html_error_response(400)
@@ -55,19 +54,10 @@ pub fn home_page() {
 }
 
 fn snippet_list_view(snippets) {
-  html.div([], [
+  html.div([attribute.class("max-w-md mx-auto p-2")], [
     html.h1([attribute.class("text-blue-500 text-2xl")], [
       html.text("Snippet List"),
     ]),
-    html.a(
-      [
-        attribute.class("hover:text-blue-500"),
-        attribute.href("/snippets/create"),
-      ],
-      [
-        html.text("Create Snippet"),
-      ],
-    ),
     view_snippet_list(snippets),
   ])
 }
@@ -82,7 +72,7 @@ fn view_snippet_list(snippets: List(Snippet)) {
           html.li([], [
             html.a(
               [
-                attribute.class("hover:text-red-500"),
+                attribute.class("text-blue-500 hover:text-blue-600"),
                 attribute.href("/snippets/" <> int.to_string(item.id)),
               ],
               [
