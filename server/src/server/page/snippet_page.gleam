@@ -1,9 +1,8 @@
 import formal/form
 import gleam/http.{Post}
-import gleam/http/request
-import gleam/httpc
 import gleam/int
 import gleam/json
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string_tree
 import lustre/attribute
@@ -13,43 +12,56 @@ import server/component/input
 import server/component/layout
 import server/errors.{BadRequest, InternalServerError, NotFound, Unauthorized}
 import server/helpers
+import server/page/login.{Header}
 import shared.{type Snippet}
 import wisp
+
+type CreateSnippetError {
+  CouldNotParseForm(form: form.Form(snippets.StoreSnippet))
+  CouldNotGetCookie(errors.AppError)
+  CreateSnippetRequestFailed(errors.AppError)
+}
 
 pub fn create_snippet_submit(req) {
   use formdata <- wisp.require_form(req)
 
-  let form = create_snippet_form() |> form.add_values(formdata.values)
+  let result = {
+    use data <- result.try(
+      create_snippet_form()
+      |> form.add_values(formdata.values)
+      |> form.run
+      |> result.map_error(CouldNotParseForm),
+    )
 
-  case form.run(form) {
-    Ok(data) -> {
-      let result = {
-        use api_req <- result.try(
-          request.to("http://localhost:8000/v1/snippets")
-          |> result.replace_error(InternalServerError("invalid URL")),
-        )
+    let body = snippets.store_snippet_to_json(data) |> json.to_string
+    use cookie <- result.try(
+      wisp.get_cookie(req, "auth_token", wisp.Signed)
+      |> result.replace_error(CouldNotGetCookie(Unauthorized)),
+    )
 
-        let body = snippets.store_snippet_to_json(data) |> json.to_string
+    let headers = [
+      Header("content-type", "application/json"),
+      Header("authorization", "Bearer " <> cookie),
+    ]
 
-        api_req
-        |> request.set_method(Post)
-        |> request.set_header("content-type", "application/json")
-        |> request.set_body(body)
-        |> httpc.send()
-        |> result.replace_error(InternalServerError("cannot connect to API"))
-      }
-      case result {
-        Ok(_) -> wisp.redirect("/")
-        Error(err) -> {
-          echo err
-          wisp.internal_server_error()
-        }
-      }
-    }
-    Error(form) -> {
+    login.send_request(
+      path: "/snippets",
+      body: Some(body),
+      method: Post,
+      headers:,
+    )
+    |> result.map_error(CreateSnippetRequestFailed)
+  }
+
+  case result {
+    Ok(_) -> wisp.redirect("/")
+    Error(CouldNotParseForm(form)) -> {
       create_snippet_view(form)
       |> string_tree.to_string
-      |> wisp.html_response(422)
+      |> wisp.html_response(200)
+    }
+    Error(_) -> {
+      wisp.internal_server_error()
     }
   }
 }
@@ -83,39 +95,35 @@ pub fn create() {
 
 fn create_snippet_view(form) {
   html.form([attribute.method("post"), attribute.class("max-w-sm mx-auto")], [
-    input.field_input(form, "title", "text", "Title", True),
+    html.h1([attribute.class("text-xl font-bold my-4")], [
+      html.text("Create a New Snippet"),
+    ]),
+    input.field_input(form, "title", "text", "Title", [attribute.required(True)]),
     html.div([attribute.class("mb-4")], [
       html.label([attribute.class("block mb-2 text-sm")], [html.text("Content")]),
-      html.textarea(
-        [
-          attribute.name("content"),
-          attribute.required(True),
-          attribute.class("block rounded-md w-full px-3 py-2"),
-          attribute.class("border border-gray-400 focus:border-transparent"),
-        ],
+      input.textarea(
+        "content",
         "",
+        "block rounded-md w-full px-3 py-2 border border-gray-400 focus:border-transparent",
+        [attribute.required(True)],
       ),
     ]),
     html.legend([attribute.class("block mb-2 text-sm")], [
       html.text("Set expiry"),
     ]),
     html.div([attribute.class("mb-4")], [
-      html.label([attribute.class("mr-2")], [
-        input.radio("ttl", "1", "mr-2", [attribute.required(True)]),
-        html.text("1 hour"),
-      ]),
-      html.label([attribute.class("mr-2")], [
-        input.radio("ttl", "3", "mr-2", []),
-        html.text("3 hours"),
-      ]),
-      html.label([attribute.class("mr-2")], [
-        input.radio("ttl", "24", "mr-2", []),
-        html.text("1 day"),
-      ]),
+      input.radio("ttl", "1", "mr-2", [attribute.required(True)]),
+      html.label([attribute.class("mr-2")], [html.text("1 hour")]),
+
+      input.radio("ttl", "3", "mr-2", []),
+      html.label([attribute.class("mr-2")], [html.text("3 hours")]),
+
+      input.radio("ttl", "24", "mr-2", []),
+      html.label([attribute.class("mr-2")], [html.text("1 day")]),
+
       input.radio("ttl", "custom", "peer mr-2", []),
-      html.label([attribute.for("ttl-custom")], [
-        html.text("Custom (hours)"),
-      ]),
+      html.label([attribute.for("ttl-custom")], [html.text("Custom (hours)")]),
+
       html.input([
         attribute.type_("number"),
         attribute.name("custom-ttl"),
@@ -136,19 +144,18 @@ fn create_snippet_view(form) {
       ],
     ),
   ])
-  |> layout.page_layout_view("Create Snippet", _)
+  |> layout.page_layout_view()
 }
 
 pub fn show(id) {
   let result = {
-    use api_req <- result.try(
-      request.to(helpers.api_url() <> "/snippets/" <> id)
-      |> result.replace_error(InternalServerError("invalid URL")),
-    )
-
     use res <- result.try(
-      httpc.send(api_req)
-      |> result.replace_error(InternalServerError("API connection failed")),
+      login.send_request(
+        path: "/snippets/" <> id,
+        body: None,
+        method: Post,
+        headers: [],
+      ),
     )
 
     case res.status >= 200 && res.status < 300 {
@@ -157,27 +164,24 @@ pub fn show(id) {
           404 -> Error(NotFound("snippet"))
           _ -> Error(InternalServerError("internal server error"))
         }
-      True -> {
+      True ->
         json.parse(res.body, shared.snippet_item_decoder())
         |> result.replace_error(InternalServerError("Failed to decode snippet"))
-      }
     }
   }
 
   case result {
-    Ok(snippet) -> {
-      layout.page_layout_view(snippet.title, snippet_page_view(snippet))
+    Ok(snippet) ->
+      layout.page_layout_view(snippet_page_view(snippet))
       |> string_tree.to_string
       |> wisp.html_response(200)
-    }
-    Error(err) -> {
+    Error(err) ->
       case err {
         BadRequest(_) -> helpers.html_error_response(400)
         NotFound(_) -> helpers.html_error_response(404)
         Unauthorized -> helpers.html_error_response(401)
         _ -> helpers.html_error_response(500)
       }
-    }
   }
 }
 

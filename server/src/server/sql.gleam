@@ -39,11 +39,19 @@ pub type GetSnippets {
   )
 }
 
-pub fn get_snippets(limit limit: Int, offset offset: Int) {
+pub fn get_snippets(
+  expires_at expires_at: Int,
+  limit limit: Int,
+  offset offset: Int,
+) {
   let sql =
     "SELECT id, author, title, content, version, expires_at, updated_at, created_at from snippets
-LIMIT $1 OFFSET $2"
-  #(sql, [dev.ParamInt(limit), dev.ParamInt(offset)], get_snippets_decoder())
+ WHERE expires_at > $1 LIMIT $2 OFFSET $3"
+  #(
+    sql,
+    [dev.ParamInt(expires_at), dev.ParamInt(limit), dev.ParamInt(offset)],
+    get_snippets_decoder(),
+  )
 }
 
 pub fn get_snippets_decoder() -> decode.Decoder(GetSnippets) {
@@ -80,12 +88,12 @@ pub type GetSnippet {
   )
 }
 
-pub fn get_snippet(id id: Int) {
+pub fn get_snippet(id id: Int, expires_at expires_at: Int) {
   let sql =
     "SELECT id, author, title, content, version, expires_at, updated_at, created_at
 FROM snippets
-WHERE id = $1"
-  #(sql, [dev.ParamInt(id)], get_snippet_decoder())
+WHERE id = $1 AND expires_at > $2"
+  #(sql, [dev.ParamInt(id), dev.ParamInt(expires_at)], get_snippet_decoder())
 }
 
 pub fn get_snippet_decoder() -> decode.Decoder(GetSnippet) {

@@ -50,7 +50,10 @@ pub fn validate_ttl(validator: validator.Validator, ttl: Int) {
 }
 
 pub fn list_snippets(ctx: context.Context, limit, offset) {
-  case sql.get_snippets(limit, offset) |> db.query(ctx.db, _) {
+  case
+    sql.get_snippets(helpers.current_time(), limit, offset)
+    |> db.query(ctx.db, _)
+  {
     Ok(pog.Returned(0, _)) -> Error(errors.NotFound("snippet"))
     Ok(rows) ->
       Ok({
@@ -77,7 +80,7 @@ pub fn get_snippet(
   id: Int,
 ) -> Result(shared.Snippet, errors.AppError) {
   use snippet <- result.try(
-    sql.get_snippet(id)
+    sql.get_snippet(id, helpers.current_time())
     |> db.query(ctx.db, _)
     |> result.map_error(errors.DatabaseError),
   )
@@ -98,6 +101,25 @@ pub fn get_snippet(
   })
 }
 
+// pub fn create_snippet(
+//   ctx: context.Context,
+//   title: String,
+//   content: String,
+//   expires_at: timestamp.Timestamp,
+// ) {
+//   timestamp.to_unix_seconds_and_nanoseconds(expires_at).0
+//   |> sql.create_snippet(
+//     1,
+//     title,
+//     content,
+//     _,
+//     helpers.current_time(),
+//     helpers.current_time(),
+//   )
+//   |> db.exec(ctx.db, _)
+//   |> result.map_error(errors.DatabaseError)
+// }
+
 pub fn create_snippet(
   ctx: context.Context,
   title: String,
@@ -105,7 +127,7 @@ pub fn create_snippet(
   expires_at: timestamp.Timestamp,
 ) {
   case ctx.user {
-    option.Some(user) -> {
+    option.Some(user) ->
       timestamp.to_unix_seconds_and_nanoseconds(expires_at).0
       |> sql.create_snippet(
         user.id,
@@ -117,10 +139,7 @@ pub fn create_snippet(
       )
       |> db.exec(ctx.db, _)
       |> result.map_error(errors.DatabaseError)
-    }
-    option.None -> {
-      Error(errors.Unauthorized)
-    }
+    option.None -> Error(errors.Unauthorized)
   }
 }
 
@@ -139,11 +158,10 @@ pub fn update_snippet(
       sql.update_snippet(old_snippet.title, content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
       |> result.map_error(errors.DatabaseError)
-    option.Some(title), _ -> {
+    option.Some(title), _ ->
       sql.update_snippet(title, old_snippet.content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
       |> result.map_error(errors.DatabaseError)
-    }
   }
 }
 

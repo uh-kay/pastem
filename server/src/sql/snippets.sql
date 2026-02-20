@@ -4,12 +4,12 @@ VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetSnippets :many
 SELECT id, author, title, content, version, expires_at, updated_at, created_at from snippets
-LIMIT $1 OFFSET $2;
+ WHERE expires_at > $1 LIMIT $2 OFFSET $3;
 
 -- name: GetSnippet :one
 SELECT id, author, title, content, version, expires_at, updated_at, created_at
 FROM snippets
-WHERE id = $1;
+WHERE id = $1 AND expires_at > $2;
 
 -- name: UpdateSnippet :exec
 UPDATE snippets

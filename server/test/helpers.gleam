@@ -2,6 +2,7 @@ import gleam/dynamic
 import gleam/list
 import pog
 import server/db
+import server/helpers
 import server/sql
 import shared
 
@@ -84,8 +85,10 @@ pub const snippet = [
 
 pub fn mock_query(result result: Result(Int, pog.QueryError)) -> db.Connection {
   use query, _params <- db.Mock
-  let list_query_sql = sql.get_snippets(limit: 0, offset: 0).0
-  let get_snippet_sql = sql.get_snippet(id: 0).0
+  let list_query_sql =
+    sql.get_snippets(expires_at: helpers.current_time(), limit: 0, offset: 0).0
+  let get_snippet_sql =
+    sql.get_snippet(id: 0, expires_at: helpers.current_time()).0
   let get_user_by_token_sql = sql.get_user_by_token(<<>>).0
   let #(create_snippet_sql, _params) =
     sql.create_snippet(

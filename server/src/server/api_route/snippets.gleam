@@ -43,11 +43,10 @@ pub fn list_snippets(ctx: Context, req: Request) {
   }
 
   case result {
-    Ok(snippets) -> {
+    Ok(snippets) ->
       snippets
       |> json.array(shared.snippet_to_json)
       |> helpers.json_response("snippets", 200)
-    }
     Error(err) -> errors.handle_error(req, err)
   }
 }
@@ -130,19 +129,16 @@ pub fn update_snippet(ctx: Context, req: Request, id: String) {
 
     let _ =
       case input.title, input.content {
-        Some(title), Some(content) -> {
+        Some(title), Some(content) ->
           validator.new()
           |> snippets.validate_title(title)
           |> snippets.validate_content(content)
-        }
-        Some(title), None -> {
+        Some(title), None ->
           validator.new()
           |> snippets.validate_title(title)
-        }
-        None, Some(content) -> {
+        None, Some(content) ->
           validator.new()
           |> snippets.validate_content(content)
-        }
         None, None -> validator.new()
       }
       |> validator.valid
