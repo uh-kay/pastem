@@ -19,17 +19,33 @@ pub fn handle_request(
   case req.method, wisp.path_segments(req) {
     _, ["v1", ..rest] -> api_routes(ctx, req, rest)
 
-    Get, ["login"] -> login.login_page()
+    _, rest -> client_routes(req, rest)
+  }
+}
+
+fn client_routes(req: Request, segments) {
+  let req = middleware.authenticate_client(req)
+
+  case req.method, segments {
+    Get, ["login"] -> login.login_page(req)
     Post, ["login"] -> login.login_submit(req)
 
-    Get, ["snippets", "create"] -> snippet_page.create()
+    Get, ["logout"] -> {
+      let res = wisp.redirect("/")
+      case wisp.get_cookie(req, "auth_token", wisp.Signed) {
+        Ok(value) ->
+          wisp.set_cookie(res, req, "auth_token", value, wisp.Signed, 0)
+        Error(_) -> res
+      }
+    }
+
+    Get, ["snippets", "create"] -> snippet_page.create(req)
     Post, ["snippets", "create"] -> snippet_page.create_snippet_submit(req)
     _, ["snippets", "create"] -> wisp.method_not_allowed([Get, Post])
 
-    Get, ["snippets", id] -> snippet_page.show(id)
+    Get, ["snippets", id] -> snippet_page.show(req, id)
 
-    Get, _ -> home.home_page()
-
+    Get, _ -> home.home_page(req)
     _, _ -> wisp.not_found()
   }
 }

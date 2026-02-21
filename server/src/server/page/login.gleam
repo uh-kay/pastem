@@ -21,10 +21,10 @@ type LoginError {
   CouldNotDecodeToken(json.DecodeError)
 }
 
-pub fn login_page() {
+pub fn login_page(req) {
   let form = login_form()
 
-  helpers.html_response(login_view(form), 200)
+  helpers.html_response(req, login_view(form), 200)
 }
 
 fn login_view(form) {
@@ -105,7 +105,7 @@ pub fn login_submit(req) {
       )
 
     Error(CouldNotParseForm(form)) ->
-      helpers.html_response(login_view(form), 422)
+      helpers.html_response(req, login_view(form), 422)
     Error(_) -> wisp.internal_server_error()
   }
 }

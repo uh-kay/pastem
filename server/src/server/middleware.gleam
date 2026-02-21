@@ -123,6 +123,17 @@ fn check_role_level(
   }
 }
 
+pub fn authenticate_client(req) {
+  case wisp.get_cookie(req, "auth_token", wisp.Signed) {
+    Ok(cookie) -> {
+      let req =
+        request.prepend_header(req, "authorization", "Bearer " <> cookie)
+      req
+    }
+    Error(_) -> req
+  }
+}
+
 pub fn require_admin_or_owner(req, ctx, id, next) {
   use req, ctx <- require_auth(req, ctx)
   use req, ctx <- snippet_context_middleware(ctx, req, id)

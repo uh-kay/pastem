@@ -3,7 +3,7 @@ import lustre/element
 import lustre/element/html
 import server/component/navbar
 
-pub fn page_layout_view(content) {
+pub fn page_layout_view(req, content) {
   html.html([], [
     html.head([], [
       html.title([], "Create Snippet"),
@@ -11,13 +11,9 @@ pub fn page_layout_view(content) {
         attribute.rel("stylesheet"),
         attribute.href("/static/server/output.css"),
       ]),
-      html.script(
-        [attribute.type_("module"), attribute.src("/static/client.js")],
-        "",
-      ),
     ]),
     html.body([], [
-      navbar.navbar(),
+      navbar.navbar(req),
       content,
     ]),
   ])

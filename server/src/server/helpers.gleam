@@ -32,8 +32,8 @@ pub fn json_response(data: Json, item: String, status: Int) -> Response {
   |> wisp.json_response(status)
 }
 
-pub fn html_response(html, status) {
-  layout.page_layout_view(html)
+pub fn html_response(req, html, status) {
+  layout.page_layout_view(req, html)
   |> string_tree.to_string
   |> wisp.html_response(status)
 }

@@ -11,3 +11,6 @@ parrot:
 
 style:
     ./bin/tailwindcss-linux-x64 -i priv/static/server/input.css -o priv/static/server/output.css --minify --watch
+
+watch:
+    watchexec -e gleam --stop-timeout 500ms -r just run

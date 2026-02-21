@@ -1,5 +1,5 @@
 import formal/form
-import gleam/http.{Post}
+import gleam/http.{Get, Post}
 import gleam/int
 import gleam/json
 import gleam/option.{None, Some}
@@ -56,9 +56,7 @@ pub fn create_snippet_submit(req) {
   case result {
     Ok(_) -> wisp.redirect("/")
     Error(CouldNotParseForm(form)) -> {
-      create_snippet_view(form)
-      |> string_tree.to_string
-      |> wisp.html_response(200)
+      helpers.html_response(req, create_snippet_view(form), 200)
     }
     Error(_) -> {
       wisp.internal_server_error()
@@ -85,10 +83,10 @@ fn create_snippet_form() {
   })
 }
 
-pub fn create() {
+pub fn create(req) {
   let form = create_snippet_form()
 
-  create_snippet_view(form)
+  layout.page_layout_view(req, create_snippet_view(form))
   |> string_tree.to_string
   |> wisp.html_response(200)
 }
@@ -144,16 +142,15 @@ fn create_snippet_view(form) {
       ],
     ),
   ])
-  |> layout.page_layout_view()
 }
 
-pub fn show(id) {
+pub fn show(req, id) {
   let result = {
     use res <- result.try(
       login.send_request(
         path: "/snippets/" <> id,
         body: None,
-        method: Post,
+        method: Get,
         headers: [],
       ),
     )
@@ -172,7 +169,7 @@ pub fn show(id) {
 
   case result {
     Ok(snippet) ->
-      layout.page_layout_view(snippet_page_view(snippet))
+      layout.page_layout_view(req, snippet_page_view(snippet))
       |> string_tree.to_string
       |> wisp.html_response(200)
     Error(err) ->
