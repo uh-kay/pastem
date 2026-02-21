@@ -1,20 +1,20 @@
-import gleam/crypto
+import gleam/crypto.{Sha256}
 import gleam/http/request
 import gleam/int
-import gleam/option
+import gleam/option.{None, Some}
 import gleam/result
-import server/context
-import server/errors
+import server/context.{type Context, Context}
+import server/errors.{type AppError, NotFound}
 import server/model/roles
 import server/model/snippets
 import server/model/users
-import wisp
+import wisp.{type Request, type Response}
 
 pub fn middleware(
-  req: wisp.Request,
+  req: Request,
   static_directory: String,
-  handle_request: fn(wisp.Request) -> wisp.Response,
-) -> wisp.Response {
+  handle_request: fn(Request) -> Response,
+) -> Response {
   let req = wisp.method_override(req)
   use <- log_request(req)
   use <- wisp.rescue_crashes
@@ -25,34 +25,31 @@ pub fn middleware(
   handle_request(req)
 }
 
-pub fn log_request(
-  req: wisp.Request,
-  handler: fn() -> wisp.Response,
-) -> wisp.Response {
+pub fn log_request(req: Request, handler: fn() -> Response) -> Response {
   let res = handler()
-  errors.format_log(req, option.Some(res), "")
+  errors.format_log(req, Some(res), "")
   |> wisp.log_info
   res
 }
 
 pub fn require_auth(
-  req: wisp.Request,
-  ctx: context.Context,
-  next: fn(wisp.Request, context.Context) -> wisp.Response,
-) -> wisp.Response {
+  req: Request,
+  ctx: Context,
+  next: fn(Request, Context) -> Response,
+) -> Response {
   let token = request.get_header(req, "Authorization")
 
   case token {
     Ok("Bearer " <> t) -> {
-      let token = crypto.hash(crypto.Sha256, <<t:utf8>>)
+      let token = crypto.hash(Sha256, <<t:utf8>>)
       case users.get_user_by_token(ctx, token) {
         Ok(user) -> {
-          let new_ctx = context.Context(..ctx, user: option.Some(user))
+          let new_ctx = Context(..ctx, user: Some(user))
           next(req, new_ctx)
         }
         Error(err) -> {
           case err {
-            errors.NotFound(_) -> wisp.response(401)
+            NotFound(_) -> wisp.response(401)
             _ -> errors.handle_error(req, err)
           }
         }
@@ -66,10 +63,10 @@ pub fn require_auth(
 }
 
 pub fn require_permission(
-  req: wisp.Request,
-  ctx: context.Context,
+  req: Request,
+  ctx: Context,
   role_name: String,
-  next: fn(wisp.Request, context.Context) -> wisp.Response,
+  next: fn(Request, Context) -> Response,
 ) {
   let is_owner = check_owner(ctx) |> result.unwrap(False)
   let is_admin = check_role_level(ctx, role_name) |> result.unwrap(False)
@@ -81,60 +78,58 @@ pub fn require_permission(
 }
 
 pub fn snippet_context_middleware(
-  ctx: context.Context,
-  req: wisp.Request,
+  ctx: Context,
+  req: Request,
   id: String,
-  next: fn(wisp.Request, context.Context) -> wisp.Response,
-) -> wisp.Response {
+  next: fn(Request, Context) -> Response,
+) -> Response {
   case result.replace_error(int.parse(id), errors.BadRequest("invalid id")) {
-    Ok(id) -> {
+    Ok(id) ->
       case snippets.get_snippet(ctx, id) {
         Ok(snippet) -> {
-          let new_ctx = context.Context(..ctx, snippet: option.Some(snippet))
+          let new_ctx = Context(..ctx, snippet: Some(snippet))
           next(req, new_ctx)
         }
         Error(err) -> errors.handle_error(req, err)
       }
-    }
     Error(err) -> errors.handle_error(req, err)
   }
 }
 
-fn check_owner(ctx: context.Context) -> Result(Bool, errors.AppError) {
+fn check_owner(ctx: Context) -> Result(Bool, AppError) {
   case ctx.snippet {
-    option.Some(snippet) ->
+    Some(snippet) ->
       case ctx.user {
-        option.Some(user) -> Ok({ user.id == snippet.author })
-        option.None -> Error(errors.NotFound("user"))
+        Some(user) -> Ok({ user.id == snippet.author })
+        None -> Error(NotFound("user"))
       }
-    option.None -> Error(errors.NotFound("snippet"))
+    None -> Error(NotFound("snippet"))
   }
 }
 
-fn check_role_level(
-  ctx: context.Context,
-  role_name: String,
-) -> Result(Bool, errors.AppError) {
+fn check_role_level(ctx: Context, role_name: String) -> Result(Bool, AppError) {
   use role <- result.try(roles.get_role(ctx, role_name))
 
   case ctx.user {
-    option.Some(user) -> Ok({ user.role_level >= role.level })
-    option.None -> Error(errors.NotFound("user"))
+    Some(user) -> Ok({ user.role_level >= role.level })
+    None -> Error(NotFound("user"))
   }
 }
 
-pub fn authenticate_client(req) {
+pub fn authenticate_client(req: Request) -> Request {
   case wisp.get_cookie(req, "auth_token", wisp.Signed) {
-    Ok(cookie) -> {
-      let req =
-        request.prepend_header(req, "authorization", "Bearer " <> cookie)
-      req
-    }
+    Ok(cookie) ->
+      request.prepend_header(req, "authorization", "Bearer " <> cookie)
     Error(_) -> req
   }
 }
 
-pub fn require_admin_or_owner(req, ctx, id, next) {
+pub fn require_admin_or_owner(
+  req: Request,
+  ctx: Context,
+  id: String,
+  next: fn(Request, Context) -> Response,
+) -> Response {
   use req, ctx <- require_auth(req, ctx)
   use req, ctx <- snippet_context_middleware(ctx, req, id)
   use req, ctx <- require_permission(req, ctx, "admin")

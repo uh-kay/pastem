@@ -9,6 +9,7 @@ import logging
 import pog
 import server/context
 import server/router
+import wisp
 import wisp/simulate
 
 pub type Logger {
@@ -34,8 +35,10 @@ fn check_request(
     option.Some(json) -> simulate.json_body(req, json)
     option.None -> req
   }
+  let assert Ok(priv_directory) = wisp.priv_directory("server")
+  let static_directory = priv_directory <> "/static"
 
-  let res = router.handle_request(ctx, todo, req)
+  let res = router.handle_request(ctx, static_directory, req)
 
   // set log level to critical to suppress error
   logging.set_level(logging.Critical)

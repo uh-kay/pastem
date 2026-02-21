@@ -15,6 +15,15 @@ pub type Register {
   Register(username: String, email: String, password: String)
 }
 
+pub fn register_to_json(register: Register) -> json.Json {
+  let Register(username:, email:, password:) = register
+  json.object([
+    #("username", json.string(username)),
+    #("email", json.string(email)),
+    #("password", json.string(password)),
+  ])
+}
+
 pub fn register(ctx: context.Context, req: wisp.Request) {
   case req.method {
     http.Post -> register_user(ctx, req)

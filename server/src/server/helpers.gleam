@@ -5,18 +5,19 @@ import gleam/result
 import gleam/string_tree.{type StringTree}
 import gleam/time/timestamp
 import lustre/attribute
-import lustre/element
+import lustre/element.{type Element}
 import lustre/element/html
 import server/component/layout
-import wisp.{type Response}
+import wisp.{type Request, type Response}
 
+// Returns the current time in UNIX seconds.
 pub fn current_time() -> Int {
   let #(now, _) =
     timestamp.system_time() |> timestamp.to_unix_seconds_and_nanoseconds()
   now
 }
 
-pub fn api_url() {
+pub fn api_url() -> String {
   result.unwrap(envoy.get("API_URL"), "")
 }
 
@@ -32,7 +33,7 @@ pub fn json_response(data: Json, item: String, status: Int) -> Response {
   |> wisp.json_response(status)
 }
 
-pub fn html_response(req, html, status) {
+pub fn html_response(req: Request, html: Element(a), status: Int) -> Response {
   layout.page_layout_view(req, html)
   |> string_tree.to_string
   |> wisp.html_response(status)

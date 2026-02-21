@@ -6,6 +6,7 @@ import server/context.{type Context}
 import server/middleware
 import server/page/home
 import server/page/login
+import server/page/register
 import server/page/snippet_page
 import wisp.{type Request, type Response}
 
@@ -27,6 +28,9 @@ fn client_routes(req: Request, segments) {
   let req = middleware.authenticate_client(req)
 
   case req.method, segments {
+    Get, ["register"] -> register.register_page(req)
+    Post, ["register"] -> register.register_submit(req)
+
     Get, ["login"] -> login.login_page(req)
     Post, ["login"] -> login.login_submit(req)
 

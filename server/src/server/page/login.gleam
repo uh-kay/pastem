@@ -1,18 +1,16 @@
 import formal/form
 import gleam/dynamic/decode
 import gleam/http.{Post}
-import gleam/http/request
-import gleam/httpc
 import gleam/json
-import gleam/list
-import gleam/option.{type Option, None, Some}
+import gleam/option.{Some}
 import gleam/result
 import lustre/attribute
 import lustre/element/html
 import server/api_route/auth.{CreateToken}
 import server/component/input
-import server/errors.{InternalServerError}
+import server/errors
 import server/helpers
+import server/page/request.{Header}
 import wisp
 
 type LoginError {
@@ -81,7 +79,7 @@ pub fn login_submit(req) {
     let headers = [Header(key: "Content-Type", value: "application/json")]
 
     use res <- result.try(
-      send_request("/tokens", option.Some(body), Post, headers)
+      request.send_request("/tokens", Some(body), Post, headers)
       |> result.map_error(TokenRequestFailed),
     )
 
@@ -106,38 +104,6 @@ pub fn login_submit(req) {
 
     Error(CouldNotParseForm(form)) ->
       helpers.html_response(req, login_view(form), 422)
-    Error(_) -> wisp.internal_server_error()
+    Error(_) -> helpers.html_error_response(500)
   }
-}
-
-pub type Header {
-  Header(key: String, value: String)
-}
-
-pub fn send_request(
-  path path: String,
-  body body: Option(String),
-  method method: http.Method,
-  headers headers: List(Header),
-) {
-  use api_req <- result.try(
-    request.to(helpers.api_url() <> path)
-    |> result.replace_error(InternalServerError("invalid URL")),
-  )
-
-  api_req
-  |> request.set_method(method)
-  |> fn(api_req) {
-    case body {
-      Some(body) -> request.set_body(api_req, body)
-      None -> api_req
-    }
-  }
-  |> fn(api_req) {
-    list.fold(headers, api_req, fn(acc_req, header) {
-      request.set_header(acc_req, header.key, header.value)
-    })
-  }
-  |> httpc.send()
-  |> result.replace_error(InternalServerError("cannot connect to API"))
 }

@@ -3,13 +3,13 @@ import gleam/dict
 import gleam/http
 import gleam/int
 import gleam/list
-import gleam/option
+import gleam/option.{None}
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import pog
 import server/helpers
-import wisp
+import wisp.{type Request, type Response}
 
 pub type AppError {
   InternalServerError(String)
@@ -21,43 +21,43 @@ pub type AppError {
   ValidationError(dict.Dict(String, String))
 }
 
-pub fn handle_error(req: wisp.Request, err: AppError) -> wisp.Response {
+pub fn handle_error(req: Request, err: AppError) -> Response {
   let message = app_error_to_string(err)
 
   case err {
     NotFound(_) -> {
-      format_log(req, option.None, message) |> wisp.log_warning()
+      format_log(req, None, message) |> wisp.log_warning()
       helpers.error_response(message, 404)
     }
     Unauthorized -> {
-      format_log(req, option.None, message) |> wisp.log_warning()
+      format_log(req, None, message) |> wisp.log_warning()
       helpers.error_response(message, 401)
     }
     InternalServerError(_) | DatabaseError(_) | HashError(_) -> {
-      format_log(req, option.None, message) |> wisp.log_error()
+      format_log(req, None, message) |> wisp.log_error()
       helpers.error_response("internal server error", 500)
     }
     BadRequest(_) -> {
-      format_log(req, option.None, message) |> wisp.log_warning()
+      format_log(req, None, message) |> wisp.log_warning()
       helpers.error_response(message, 400)
     }
     ValidationError(_) -> {
-      format_log(req, option.None, message) |> wisp.log_warning()
+      format_log(req, None, message) |> wisp.log_warning()
       helpers.error_response(message, 400)
     }
   }
 }
 
 pub fn format_log(
-  req: wisp.Request,
-  res: option.Option(wisp.Response),
+  req: Request,
+  res: option.Option(Response),
   message: String,
-) {
+) -> String {
   let log =
     timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
     <> " "
-  let log = case res {
-    option.Some(res) -> {
+  case res {
+    option.Some(res) ->
       log
       <> int.to_string(res.status)
       <> " "
@@ -66,20 +66,17 @@ pub fn format_log(
       <> req.path
       <> " "
       <> message
-    }
-    option.None -> {
+    None ->
       log
       <> http_method_to_string(req.method)
       <> " "
       <> req.path
       <> " "
       <> message
-    }
   }
-  log
 }
 
-fn http_method_to_string(method: http.Method) {
+fn http_method_to_string(method: http.Method) -> String {
   case method {
     http.Get -> "GET"
     http.Post -> "POST"
@@ -94,7 +91,7 @@ fn http_method_to_string(method: http.Method) {
   }
 }
 
-pub fn app_error_to_string(err: AppError) {
+pub fn app_error_to_string(err: AppError) -> String {
   case err {
     InternalServerError(err) -> err
     Unauthorized -> "unauthorized"
@@ -113,7 +110,7 @@ pub fn app_error_to_string(err: AppError) {
   }
 }
 
-fn pog_error_to_string(err: pog.QueryError) {
+fn pog_error_to_string(err: pog.QueryError) -> String {
   case err {
     pog.ConstraintViolated(message:, constraint:, detail:) ->
       "constraint violated: { message:"
@@ -149,7 +146,7 @@ fn pog_error_to_string(err: pog.QueryError) {
   }
 }
 
-fn argus_error_to_string(err: argus.HashError) {
+fn argus_error_to_string(err: argus.HashError) -> String {
   case err {
     argus.OutputPointerIsNull -> "output pointer is null"
     argus.OutputTooShort -> "output too short"

@@ -12,7 +12,7 @@ import server/component/input
 import server/component/layout
 import server/errors.{BadRequest, InternalServerError, NotFound, Unauthorized}
 import server/helpers
-import server/page/login.{Header}
+import server/page/request.{Header}
 import shared.{type Snippet}
 import wisp
 
@@ -44,7 +44,7 @@ pub fn create_snippet_submit(req) {
       Header("authorization", "Bearer " <> cookie),
     ]
 
-    login.send_request(
+    request.send_request(
       path: "/snippets",
       body: Some(body),
       method: Post,
@@ -55,12 +55,9 @@ pub fn create_snippet_submit(req) {
 
   case result {
     Ok(_) -> wisp.redirect("/")
-    Error(CouldNotParseForm(form)) -> {
-      helpers.html_response(req, create_snippet_view(form), 200)
-    }
-    Error(_) -> {
-      wisp.internal_server_error()
-    }
+    Error(CouldNotParseForm(form)) ->
+      helpers.html_response(req, create_snippet_view(form), 422)
+    Error(_) -> helpers.html_error_response(500)
   }
 }
 
@@ -147,7 +144,7 @@ fn create_snippet_view(form) {
 pub fn show(req, id) {
   let result = {
     use res <- result.try(
-      login.send_request(
+      request.send_request(
         path: "/snippets/" <> id,
         body: None,
         method: Get,
