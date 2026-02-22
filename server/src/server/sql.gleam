@@ -29,7 +29,8 @@ VALUES ($1, $2, $3, $4, $5, $6)"
 pub type GetSnippets {
   GetSnippets(
     id: Int,
-    author: Int,
+    author_id: Int,
+    author_name: String,
     title: String,
     content: String,
     version: Int,
@@ -45,8 +46,10 @@ pub fn get_snippets(
   offset offset: Int,
 ) {
   let sql =
-    "SELECT id, author, title, content, version, expires_at, updated_at, created_at from snippets
- WHERE expires_at > $1 LIMIT $2 OFFSET $3"
+    "SELECT s.id, s.author as author_id, u.username as author_name, title, content, version, expires_at, s.updated_at, s.created_at
+FROM snippets s
+INNER JOIN users u ON s.author = u.id
+WHERE expires_at > $1 LIMIT $2 OFFSET $3"
   #(
     sql,
     [dev.ParamInt(expires_at), dev.ParamInt(limit), dev.ParamInt(offset)],
@@ -56,16 +59,18 @@ pub fn get_snippets(
 
 pub fn get_snippets_decoder() -> decode.Decoder(GetSnippets) {
   use id <- decode.field(0, decode.int)
-  use author <- decode.field(1, decode.int)
-  use title <- decode.field(2, decode.string)
-  use content <- decode.field(3, decode.string)
-  use version <- decode.field(4, decode.int)
-  use expires_at <- decode.field(5, decode.int)
-  use updated_at <- decode.field(6, decode.int)
-  use created_at <- decode.field(7, decode.int)
+  use author_id <- decode.field(1, decode.int)
+  use author_name <- decode.field(2, decode.string)
+  use title <- decode.field(3, decode.string)
+  use content <- decode.field(4, decode.string)
+  use version <- decode.field(5, decode.int)
+  use expires_at <- decode.field(6, decode.int)
+  use updated_at <- decode.field(7, decode.int)
+  use created_at <- decode.field(8, decode.int)
   decode.success(GetSnippets(
     id:,
-    author:,
+    author_id:,
+    author_name:,
     title:,
     content:,
     version:,
@@ -78,7 +83,8 @@ pub fn get_snippets_decoder() -> decode.Decoder(GetSnippets) {
 pub type GetSnippet {
   GetSnippet(
     id: Int,
-    author: Int,
+    author_id: Int,
+    author_name: String,
     title: String,
     content: String,
     version: Int,
@@ -90,24 +96,27 @@ pub type GetSnippet {
 
 pub fn get_snippet(id id: Int, expires_at expires_at: Int) {
   let sql =
-    "SELECT id, author, title, content, version, expires_at, updated_at, created_at
-FROM snippets
-WHERE id = $1 AND expires_at > $2"
+    "SELECT s.id, s.author as author_id, u.username as author_name, title, content, version, expires_at, s.updated_at, s.created_at
+FROM snippets s
+INNER JOIN users u ON s.author = u.id
+WHERE s.id = $1 AND expires_at > $2"
   #(sql, [dev.ParamInt(id), dev.ParamInt(expires_at)], get_snippet_decoder())
 }
 
 pub fn get_snippet_decoder() -> decode.Decoder(GetSnippet) {
   use id <- decode.field(0, decode.int)
-  use author <- decode.field(1, decode.int)
-  use title <- decode.field(2, decode.string)
-  use content <- decode.field(3, decode.string)
-  use version <- decode.field(4, decode.int)
-  use expires_at <- decode.field(5, decode.int)
-  use updated_at <- decode.field(6, decode.int)
-  use created_at <- decode.field(7, decode.int)
+  use author_id <- decode.field(1, decode.int)
+  use author_name <- decode.field(2, decode.string)
+  use title <- decode.field(3, decode.string)
+  use content <- decode.field(4, decode.string)
+  use version <- decode.field(5, decode.int)
+  use expires_at <- decode.field(6, decode.int)
+  use updated_at <- decode.field(7, decode.int)
+  use created_at <- decode.field(8, decode.int)
   decode.success(GetSnippet(
     id:,
-    author:,
+    author_id:,
+    author_name:,
     title:,
     content:,
     version:,

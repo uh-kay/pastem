@@ -6,7 +6,8 @@ import gleam/option
 pub type Snippet {
   Snippet(
     id: Int,
-    author: Int,
+    author_id: Int,
+    author_name: String,
     title: String,
     content: String,
     version: Int,
@@ -19,7 +20,8 @@ pub type Snippet {
 pub fn snippet_to_json(snippet: Snippet) -> json.Json {
   let Snippet(
     id:,
-    author:,
+    author_id:,
+    author_name:,
     title:,
     content:,
     version:,
@@ -29,7 +31,8 @@ pub fn snippet_to_json(snippet: Snippet) -> json.Json {
   ) = snippet
   json.object([
     #("id", json.int(id)),
-    #("author", json.int(author)),
+    #("author_id", json.int(author_id)),
+    #("author_name", json.string(author_name)),
     #("title", json.string(title)),
     #("content", json.string(content)),
     #("version", json.int(version)),
@@ -45,7 +48,8 @@ pub fn snippet_list_to_json(snippets) {
 
 pub fn snippet_decoder() -> decode.Decoder(Snippet) {
   use id <- decode.field("id", decode.int)
-  use author <- decode.field("author", decode.int)
+  use author_id <- decode.field("author_id", decode.int)
+  use author_name <- decode.field("author_name", decode.string)
   use title <- decode.field("title", decode.string)
   use content <- decode.field("content", decode.string)
   use version <- decode.field("version", decode.int)
@@ -54,7 +58,8 @@ pub fn snippet_decoder() -> decode.Decoder(Snippet) {
   use created_at <- decode.field("created_at", decode.int)
   decode.success(Snippet(
     id:,
-    author:,
+    author_id:,
+    author_name:,
     title:,
     content:,
     version:,

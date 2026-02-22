@@ -100,7 +100,7 @@ fn check_owner(ctx: Context) -> Result(Bool, AppError) {
   case ctx.snippet {
     Some(snippet) ->
       case ctx.user {
-        Some(user) -> Ok({ user.id == snippet.author })
+        Some(user) -> Ok({ user.id == snippet.author_id })
         None -> Error(NotFound("user"))
       }
     None -> Error(NotFound("snippet"))

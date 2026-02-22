@@ -61,7 +61,8 @@ pub fn list_snippets(ctx: context.Context, limit, offset) {
         |> list.map(fn(row: sql.GetSnippets) {
           shared.Snippet(
             row.id,
-            row.author,
+            row.author_id,
+            row.author_name,
             row.title,
             row.content,
             row.version,
@@ -90,7 +91,8 @@ pub fn get_snippet(
   |> result.map(fn(row) {
     shared.Snippet(
       id: row.id,
-      author: row.author,
+      author_id: row.author_id,
+      author_name: row.author_name,
       title: row.title,
       content: row.content,
       version: row.version,
