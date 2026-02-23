@@ -80,6 +80,20 @@ pub fn get_snippets_decoder() -> decode.Decoder(GetSnippets) {
   ))
 }
 
+pub type GetSnippetCount {
+  GetSnippetCount(count: Int)
+}
+
+pub fn get_snippet_count(expires_at expires_at: Int) {
+  let sql = "SELECT count(id) FROM snippets WHERE expires_at > $1"
+  #(sql, [dev.ParamInt(expires_at)], get_snippet_count_decoder())
+}
+
+pub fn get_snippet_count_decoder() -> decode.Decoder(GetSnippetCount) {
+  use count <- decode.field(0, decode.int)
+  decode.success(GetSnippetCount(count:))
+}
+
 pub type GetSnippet {
   GetSnippet(
     id: Int,

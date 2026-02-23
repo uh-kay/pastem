@@ -2,7 +2,7 @@ import gleam/dynamic
 import gleam/list
 import pog
 import server/db
-import server/helpers
+import server/helper
 import server/sql
 import shared
 

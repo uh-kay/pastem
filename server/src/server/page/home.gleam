@@ -1,33 +1,53 @@
-import gleam/http/request
-import gleam/httpc
+import gleam/dynamic/decode
+import gleam/http
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/option
 import gleam/result
 import gleam/string_tree
 import lustre/attribute
+import lustre/element
 import lustre/element/html
 import server/component/layout
-import server/errors.{BadRequest, InternalServerError, NotFound, Unauthorized}
-import server/helpers
+import server/error.{BadRequest, InternalServerError, NotFound, Unauthorized}
+import server/helper
+import server/page/request
 import shared.{type Snippet}
 import wisp
 
-pub fn home_page(req) {
-  let result = {
-    use api_req <- result.try(
-      request.to(helpers.api_url() <> "/snippets")
-      |> result.replace_error(InternalServerError("invalid URL")),
-    )
+type ListSnippets {
+  ListSnippets(count: Int, snippets: List(Snippet))
+}
 
+fn list_snippets_decoder() -> decode.Decoder(ListSnippets) {
+  use count <- decode.field("count", decode.int)
+  use snippets <- decode.field(
+    "snippets",
+    decode.list(shared.snippet_decoder()),
+  )
+
+  decode.success(ListSnippets(count:, snippets:))
+}
+
+pub fn home_page(req) {
+  let queries = wisp.get_query(req)
+  let page = helper.query_to_int(queries, "page", 1)
+  let offset = { page - 1 } * 20
+
+  let result = {
     use res <- result.try(
-      httpc.send(api_req)
-      |> result.replace_error(InternalServerError("API connection failed")),
+      request.send_request(
+        "/snippets?offset=" <> int.to_string(offset),
+        body: option.None,
+        method: http.Get,
+        headers: [],
+      ),
     )
 
     case res.status >= 200 && res.status < 300 {
       True ->
-        json.parse(res.body, shared.snippet_list_decoder())
+        json.parse(res.body, list_snippets_decoder())
         |> result.replace_error(InternalServerError("failed to decode snippet"))
       False ->
         case res.status {
@@ -38,22 +58,29 @@ pub fn home_page(req) {
   }
 
   case result {
-    Ok(snippets) ->
-      layout.page_layout_view(req, snippet_list_view(snippets))
+    Ok(snippets) -> {
+      let page_count = int.max(snippets.count / 20, 1)
+
+      layout.page_layout_view(
+        req,
+        "Pastem",
+        snippet_list_view(snippets.snippets, page, page_count),
+      )
       |> string_tree.to_string
       |> wisp.html_response(200)
+    }
     Error(err) -> {
       case err {
-        BadRequest(_) -> helpers.html_error_response(400)
-        NotFound(_) -> helpers.html_error_response(404)
-        Unauthorized -> helpers.html_error_response(401)
-        _ -> helpers.html_error_response(500)
+        BadRequest(_) -> helper.html_error_response(400)
+        NotFound(_) -> helper.html_error_response(404)
+        Unauthorized -> helper.html_error_response(401)
+        _ -> helper.html_error_response(500)
       }
     }
   }
 }
 
-fn snippet_list_view(snippets) {
+fn snippet_list_view(snippets: List(Snippet), current_page, page_count) {
   html.div([attribute.class("max-w-2xl mx-auto p-6")], [
     html.header([attribute.class("mb-8 border-b pb-4")], [
       html.h1([attribute.class("text-3xl font-bold text-slate-900")], [
@@ -64,6 +91,60 @@ fn snippet_list_view(snippets) {
       ]),
     ]),
     view_snippet_list(snippets),
+    paginate(current_page, page_count),
+  ])
+}
+
+fn paginate(current_page, page_count) {
+  let pages =
+    int.range(from: page_count, to: 0, with: [], run: fn(acc, i) {
+      [
+        html.a(
+          [
+            attribute.href("?page=" <> int.to_string(i)),
+            attribute.class(case i == current_page {
+              True -> "font-bold p-2"
+              False -> "p-2"
+            }),
+          ],
+          [html.text(int.to_string(i))],
+        ),
+        ..acc
+      ]
+    })
+
+  html.div([attribute.class("flex justify-center items-center")], [
+    html.a(
+      list.flatten([
+        case current_page {
+          _ if current_page <= 1 -> {
+            [
+              attribute.class("text-gray-400 cursor-not-allowed text-xl p-2"),
+            ]
+          }
+          _ -> [
+            attribute.href("?page=" <> int.to_string(current_page - 1)),
+            attribute.class("text-xl p-2"),
+          ]
+        },
+      ]),
+      [html.text("<")],
+    ),
+    element.fragment(pages),
+    html.a(
+      list.flatten([
+        case current_page {
+          _ if current_page >= page_count -> {
+            [attribute.class("text-gray-400 cursor-not-allowed text-xl p-2")]
+          }
+          _ -> [
+            attribute.href("?page=" <> int.to_string(current_page + 1)),
+            attribute.class("text-xl p-2"),
+          ]
+        },
+      ]),
+      [html.text(">")],
+    ),
   ])
 }
 
@@ -84,38 +165,35 @@ fn view_snippet_list(snippets: List(Snippet)) {
       )
 
     _ -> {
-      html.ul(
-        [attribute.class("space-y-4")],
-        list.index_map(snippets, fn(item, _index) {
-          html.li([attribute.class("group")], [
-            html.a(
-              [
-                attribute.class(
-                  "block p-4 bg-white border border-slate-200 rounded-xl shadow-sm transition-all hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5",
-                ),
-                attribute.href("/snippets/" <> int.to_string(item.id)),
-              ],
-              [
-                html.div(
-                  [attribute.class("flex justify-between items-center")],
-                  [
+      html.div([], [
+        html.ul(
+          [attribute.class("space-y-4")],
+          list.index_map(snippets, fn(item, _index) {
+            html.li([attribute.class("group")], [
+              html.a(
+                [
+                  attribute.class(
+                    "block p-4 bg-white border border-slate-200 rounded-xl shadow-sm transition-all hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5",
+                  ),
+                  attribute.href("/snippets/" <> int.to_string(item.id)),
+                ],
+                [
+                  html.div([], [
                     html.span(
                       [
                         attribute.class(
                           "text-lg font-semibold text-slate-800 group-hover:text-blue-600",
                         ),
                       ],
-                      [
-                        html.text(item.title),
-                      ],
+                      [html.text(item.title)],
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ])
-        }),
-      )
+                  ]),
+                ],
+              ),
+            ])
+          }),
+        ),
+      ])
     }
   }
 }

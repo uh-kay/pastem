@@ -1,34 +1,33 @@
 import gleam/dynamic/decode.{type Decoder}
 import gleam/int
 import gleam/json
-import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/time/duration
 import gleam/time/timestamp
 import server/context.{type Context}
-import server/errors.{BadRequest}
-import server/helpers
-import server/model/snippets
+import server/error.{BadRequest}
+import server/helper
+import server/model/snippet
 import shared
 import validator/validator
 import wisp.{type Request}
 
 pub fn get_snippet(ctx: Context, req: Request, id: String) {
   let result = {
-    use id <- result.try(parse_id(id))
+    use id <- result.try(
+      int.parse(id) |> result.replace_error(BadRequest("invalid id")),
+    )
 
-    snippets.get_snippet(ctx, id)
+    snippet.get_snippet(ctx, id)
   }
 
   case result {
     Ok(snippet) ->
-      snippet
-      |> shared.snippet_to_json
-      |> helpers.json_response("snippet", 200)
+      helper.json_response(["snippet"], [shared.snippet_to_json(snippet)], 200)
     Error(err) ->
       case err {
-        _ -> errors.handle_error(req, err)
+        _ -> error.handle_error(req, err)
       }
   }
 }
@@ -36,18 +35,23 @@ pub fn get_snippet(ctx: Context, req: Request, id: String) {
 pub fn list_snippets(ctx: Context, req: Request) {
   let result = {
     let queries = wisp.get_query(req)
-    let limit = query_to_int(queries, "limit", 20)
-    let offset = query_to_int(queries, "offset", 0)
+    let limit = helper.query_to_int(queries, "limit", 20)
+    let offset = helper.query_to_int(queries, "offset", 0)
 
-    snippets.list_snippets(ctx, limit, offset)
+    use count <- result.try(snippet.get_snippet_count(ctx))
+    use snippets <- result.try(snippet.list_snippets(ctx, limit, offset))
+
+    Ok(#(snippets, count))
   }
 
   case result {
-    Ok(snippets) ->
-      snippets
-      |> json.array(shared.snippet_to_json)
-      |> helpers.json_response("snippets", 200)
-    Error(err) -> errors.handle_error(req, err)
+    Ok(#(snippets, count)) ->
+      helper.json_response(
+        ["snippets", "count"],
+        [json.array(snippets, shared.snippet_to_json), json.int(count)],
+        200,
+      )
+    Error(err) -> error.handle_error(req, err)
   }
 }
 
@@ -81,22 +85,23 @@ pub fn store_snippet(ctx: Context, req: Request) {
       fn(input) {
         let _ =
           validator.new()
-          |> snippets.validate_title(input.title)
-          |> snippets.validate_content(input.content)
-          |> snippets.validate_ttl(input.ttl)
+          |> snippet.validate_title(input.title)
+          |> snippet.validate_content(input.content)
+          |> snippet.validate_ttl(input.ttl)
           |> validator.valid
 
         let expires_at =
           timestamp.add(timestamp.system_time(), duration.hours(input.ttl))
 
-        snippets.create_snippet(ctx, input.title, input.content, expires_at)
+        snippet.create_snippet(ctx, input.title, input.content, expires_at)
       },
     )
   }
 
   case result {
-    Ok(_) -> helpers.message_response("snippet created", 201)
-    Error(err) -> errors.handle_error(req, err)
+    Ok(_) ->
+      helper.json_response(["message"], [json.string("snippet created")], 201)
+    Error(err) -> error.handle_error(req, err)
   }
 }
 
@@ -131,56 +136,52 @@ pub fn update_snippet(ctx: Context, req: Request, id: String) {
       case input.title, input.content {
         Some(title), Some(content) ->
           validator.new()
-          |> snippets.validate_title(title)
-          |> snippets.validate_content(content)
+          |> snippet.validate_title(title)
+          |> snippet.validate_content(content)
         Some(title), None ->
           validator.new()
-          |> snippets.validate_title(title)
+          |> snippet.validate_title(title)
         None, Some(content) ->
           validator.new()
-          |> snippets.validate_content(content)
+          |> snippet.validate_content(content)
         None, None -> validator.new()
       }
       |> validator.valid
 
-    use id <- result.try(parse_id(id))
+    use id <- result.try(
+      int.parse(id) |> result.replace_error(BadRequest("invalid id")),
+    )
 
-    snippets.update_snippet(ctx, input.title, input.content, id)
+    snippet.update_snippet(ctx, input.title, input.content, id)
   }
 
   case result {
     Ok(row) ->
       case row.count {
-        1 -> helpers.message_response("snippet updated", 200)
-        _ -> helpers.error_response("edit conflict", 409)
+        1 ->
+          helper.json_response(
+            ["message"],
+            [json.string("snippet updated")],
+            200,
+          )
+        _ -> helper.error_response("edit conflict", 409)
       }
-    Error(err) -> errors.handle_error(req, err)
+    Error(err) -> error.handle_error(req, err)
   }
 }
 
 pub fn delete_snippet(ctx: Context, req: Request, id: String) {
   let result = {
-    use id <- result.try(parse_id(id))
+    use id <- result.try(
+      int.parse(id) |> result.replace_error(BadRequest("invalid id")),
+    )
 
-    snippets.delete_snippet(ctx, id)
+    snippet.delete_snippet(ctx, id)
   }
 
   case result {
-    Ok(_) -> helpers.message_response("snippet deleted", 200)
-    Error(err) -> errors.handle_error(req, err)
+    Ok(_) ->
+      helper.json_response(["message"], [json.string("snippet deleted")], 200)
+    Error(err) -> error.handle_error(req, err)
   }
-}
-
-fn parse_id(id: String) {
-  case int.parse(id) {
-    Ok(id) -> Ok(id)
-    Error(_) -> Error(BadRequest("invalid id"))
-  }
-}
-
-fn query_to_int(queries, key, fallback) {
-  list.key_find(queries, key)
-  |> result.unwrap("")
-  |> int.parse()
-  |> result.unwrap(fallback)
 }

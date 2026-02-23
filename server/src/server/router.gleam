@@ -1,7 +1,7 @@
 import gleam/http.{Delete, Get, Patch, Post}
 import server/api_route/auth
 import server/api_route/health
-import server/api_route/snippets
+import server/api_route/snippet
 import server/context.{type Context}
 import server/middleware
 import server/page/home
@@ -20,12 +20,12 @@ pub fn handle_request(
   case req.method, wisp.path_segments(req) {
     _, ["v1", ..rest] -> api_routes(ctx, req, rest)
 
-    _, rest -> client_routes(req, rest)
+    _, rest -> web_routes(req, rest)
   }
 }
 
-fn client_routes(req: Request, segments) {
-  let req = middleware.authenticate_client(req)
+fn web_routes(req: Request, segments) {
+  let req = middleware.authenticate_web(req)
 
   case req.method, segments {
     Get, ["register"] -> register.register_page(req)
@@ -60,21 +60,21 @@ fn api_routes(ctx: Context, req: Request, segments: List(String)) -> Response {
     Post, ["register"] -> auth.register(ctx, req)
     Post, ["tokens"] -> auth.tokens(ctx, req)
 
-    Get, ["snippets"] -> snippets.list_snippets(ctx, req)
+    Get, ["snippets"] -> snippet.list_snippets(ctx, req)
     Post, ["snippets"] -> {
       use req, ctx <- middleware.require_auth(req, ctx)
-      snippets.store_snippet(ctx, req)
+      snippet.store_snippet(ctx, req)
     }
     _, ["snippets"] -> wisp.method_not_allowed([Get, Post])
 
-    Get, ["snippets", id] -> snippets.get_snippet(ctx, req, id)
+    Get, ["snippets", id] -> snippet.get_snippet(ctx, req, id)
     Patch, ["snippets", id] -> {
       use req, ctx <- middleware.require_admin_or_owner(req, ctx, id)
-      snippets.update_snippet(ctx, req, id)
+      snippet.update_snippet(ctx, req, id)
     }
     Delete, ["snippets", id] -> {
       use req, ctx <- middleware.require_admin_or_owner(req, ctx, id)
-      snippets.delete_snippet(ctx, req, id)
+      snippet.delete_snippet(ctx, req, id)
     }
     _, ["snippets", _] -> wisp.method_not_allowed([Get, Patch, Delete])
 

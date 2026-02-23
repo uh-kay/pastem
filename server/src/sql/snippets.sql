@@ -8,6 +8,9 @@ FROM snippets s
 INNER JOIN users u ON s.author = u.id
 WHERE expires_at > $1 LIMIT $2 OFFSET $3;
 
+-- name: GetSnippetCount :one
+SELECT count(id) FROM snippets WHERE expires_at > $1;
+
 -- name: GetSnippet :one
 SELECT s.id, s.author as author_id, u.username as author_name, title, content, version, expires_at, s.updated_at, s.created_at
 FROM snippets s

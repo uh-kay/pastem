@@ -8,7 +8,7 @@ import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import pog
-import server/helpers
+import server/helper
 import wisp.{type Request, type Response}
 
 pub type AppError {
@@ -27,23 +27,23 @@ pub fn handle_error(req: Request, err: AppError) -> Response {
   case err {
     NotFound(_) -> {
       format_log(req, None, message) |> wisp.log_warning()
-      helpers.error_response(message, 404)
+      helper.error_response(message, 404)
     }
     Unauthorized -> {
       format_log(req, None, message) |> wisp.log_warning()
-      helpers.error_response(message, 401)
+      helper.error_response(message, 401)
     }
     InternalServerError(_) | DatabaseError(_) | HashError(_) -> {
       format_log(req, None, message) |> wisp.log_error()
-      helpers.error_response("internal server error", 500)
+      helper.error_response("internal server error", 500)
     }
     BadRequest(_) -> {
       format_log(req, None, message) |> wisp.log_warning()
-      helpers.error_response(message, 400)
+      helper.error_response(message, 400)
     }
     ValidationError(_) -> {
       format_log(req, None, message) |> wisp.log_warning()
-      helpers.error_response(message, 400)
+      helper.error_response(message, 400)
     }
   }
 }

@@ -7,15 +7,15 @@ import lustre/attribute
 import lustre/element/html
 import server/api_route/auth
 import server/component/input
-import server/errors
-import server/helpers
+import server/error
+import server/helper
 import server/page/request
 import wisp
 
 pub fn register_page(req) {
   let form = register_form()
 
-  helpers.html_response(req, register_view(form), 200)
+  helper.html_response(req, "Register", register_view(form), 200)
 }
 
 fn register_form() {
@@ -54,7 +54,7 @@ fn register_view(form) {
 
 type RegisterError {
   CannotParseForm(form.Form(auth.Register))
-  RegisterRequestFailed(errors.AppError)
+  RegisterRequestFailed(error.AppError)
 }
 
 pub fn register_submit(req) {
@@ -79,7 +79,7 @@ pub fn register_submit(req) {
   case result {
     Ok(_) -> wisp.redirect("/login")
     Error(CannotParseForm(form)) ->
-      helpers.html_response(req, register_view(form), 422)
-    Error(RegisterRequestFailed(_)) -> helpers.html_error_response(500)
+      helper.html_response(req, "Register", register_view(form), 422)
+    Error(RegisterRequestFailed(_)) -> helper.html_error_response(500)
   }
 }

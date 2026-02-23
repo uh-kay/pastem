@@ -1,6 +1,7 @@
 import envoy
 import gleam/int
 import gleam/json.{type Json}
+import gleam/list
 import gleam/result
 import gleam/string_tree.{type StringTree}
 import gleam/time/timestamp
@@ -21,20 +22,24 @@ pub fn api_url() -> String {
   result.unwrap(envoy.get("API_URL"), "")
 }
 
-pub fn message_response(message: String, status: Int) -> Response {
-  json.object([#("message", json.string(message))])
+pub fn json_response(
+  key: List(String),
+  value: List(Json),
+  status: Int,
+) -> Response {
+  list.zip(key, value)
+  |> json.object
   |> json.to_string
   |> wisp.json_response(status)
 }
 
-pub fn json_response(data: Json, item: String, status: Int) -> Response {
-  json.object([#(item, data)])
-  |> json.to_string
-  |> wisp.json_response(status)
-}
-
-pub fn html_response(req: Request, html: Element(a), status: Int) -> Response {
-  layout.page_layout_view(req, html)
+pub fn html_response(
+  req: Request,
+  title: String,
+  content: Element(a),
+  status: Int,
+) -> Response {
+  layout.page_layout_view(req, title, content)
   |> string_tree.to_string
   |> wisp.html_response(status)
 }
@@ -54,4 +59,11 @@ pub fn html_error_response(status: Int) -> Response {
 fn error_page_view(status: String) -> StringTree {
   html.div([], [html.img([attribute.src("https://http.cat/images/" <> status)])])
   |> element.to_document_string_tree
+}
+
+pub fn query_to_int(queries, key, fallback) {
+  list.key_find(queries, key)
+  |> result.unwrap("")
+  |> int.parse()
+  |> result.unwrap(fallback)
 }

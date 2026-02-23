@@ -7,19 +7,19 @@ import gleam/result
 import gleam/string_tree
 import lustre/attribute
 import lustre/element/html
-import server/api_route/snippets.{StoreSnippet}
+import server/api_route/snippet.{StoreSnippet}
 import server/component/input
 import server/component/layout
-import server/errors.{BadRequest, InternalServerError, NotFound, Unauthorized}
-import server/helpers
+import server/error.{BadRequest, InternalServerError, NotFound, Unauthorized}
+import server/helper
 import server/page/request.{Header}
 import shared.{type Snippet}
 import wisp
 
 type CreateSnippetError {
-  CouldNotParseForm(form: form.Form(snippets.StoreSnippet))
-  CouldNotGetCookie(errors.AppError)
-  CreateSnippetRequestFailed(errors.AppError)
+  CouldNotParseForm(form: form.Form(snippet.StoreSnippet))
+  CouldNotGetCookie(error.AppError)
+  CreateSnippetRequestFailed(error.AppError)
 }
 
 pub fn create_snippet_submit(req) {
@@ -33,7 +33,7 @@ pub fn create_snippet_submit(req) {
       |> result.map_error(CouldNotParseForm),
     )
 
-    let body = snippets.store_snippet_to_json(data) |> json.to_string
+    let body = snippet.store_snippet_to_json(data) |> json.to_string
     use cookie <- result.try(
       wisp.get_cookie(req, "auth_token", wisp.Signed)
       |> result.replace_error(CouldNotGetCookie(Unauthorized)),
@@ -56,8 +56,13 @@ pub fn create_snippet_submit(req) {
   case result {
     Ok(_) -> wisp.redirect("/")
     Error(CouldNotParseForm(form)) ->
-      helpers.html_response(req, create_snippet_view(form), 422)
-    Error(_) -> helpers.html_error_response(500)
+      helper.html_response(
+        req,
+        "Create Snippet",
+        create_snippet_view(form),
+        422,
+      )
+    Error(_) -> helper.html_error_response(500)
   }
 }
 
@@ -83,7 +88,7 @@ fn create_snippet_form() {
 pub fn create(req) {
   let form = create_snippet_form()
 
-  layout.page_layout_view(req, create_snippet_view(form))
+  layout.page_layout_view(req, "Create Snippet", create_snippet_view(form))
   |> string_tree.to_string
   |> wisp.html_response(200)
 }
@@ -166,21 +171,25 @@ pub fn show(req, id) {
 
   case result {
     Ok(snippet) ->
-      layout.page_layout_view(req, snippet_page_view(snippet))
+      layout.page_layout_view(
+        req,
+        "Pastem - " <> snippet.title,
+        snippet_page_view(snippet),
+      )
       |> string_tree.to_string
       |> wisp.html_response(200)
     Error(err) ->
       case err {
-        BadRequest(_) -> helpers.html_error_response(400)
-        NotFound(_) -> helpers.html_error_response(404)
-        Unauthorized -> helpers.html_error_response(401)
-        _ -> helpers.html_error_response(500)
+        BadRequest(_) -> helper.html_error_response(400)
+        NotFound(_) -> helper.html_error_response(404)
+        Unauthorized -> helper.html_error_response(401)
+        _ -> helper.html_error_response(500)
       }
   }
 }
 
 fn time_until(unix_timestamp) {
-  let diff = unix_timestamp - helpers.current_time()
+  let diff = unix_timestamp - helper.current_time()
 
   case diff {
     _ if diff > 86_400 -> int.to_string(diff / 86_400) <> " days"

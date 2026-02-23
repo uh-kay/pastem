@@ -5,8 +5,8 @@ import gleam/result
 import gleam/string
 import server/context
 import server/db
-import server/errors
-import server/helpers
+import server/error
+import server/helper
 import server/sql
 import shared
 import validator/validator
@@ -59,22 +59,22 @@ pub fn hash_password(password) {
   use password <- result.try(
     argus.hasher()
     |> argus.hash(password, argus.gen_salt())
-    |> result.map_error(errors.HashError),
+    |> result.map_error(error.HashError),
   )
   Ok(password.encoded_hash |> bit_array.from_string)
 }
 
 pub fn create_user(ctx: context.Context, username, email, password) {
-  sql.create_user(username, email, password, helpers.current_time())
+  sql.create_user(username, email, password, helper.current_time())
   |> db.exec(ctx.db, _)
-  |> result.map_error(errors.DatabaseError)
+  |> result.map_error(error.DatabaseError)
 }
 
 pub fn get_user(ctx: context.Context, email: String) {
   case sql.get_user_by_email(email) |> db.query(ctx.db, _) {
     Ok(user) -> {
       list.first(user.rows)
-      |> result.replace_error(errors.NotFound("user"))
+      |> result.replace_error(error.NotFound("user"))
       |> result.map(fn(row) {
         shared.User(
           id: row.id,
@@ -86,7 +86,7 @@ pub fn get_user(ctx: context.Context, email: String) {
         )
       })
     }
-    Error(err) -> Error(errors.DatabaseError(err))
+    Error(err) -> Error(error.DatabaseError(err))
   }
 }
 
@@ -95,15 +95,13 @@ pub fn verify_user(ctx: context.Context, email: String, password: String) {
 
   use password_hash <- result.try(
     bit_array.to_string(user.password)
-    |> result.replace_error(errors.InternalServerError(
-      "failed hashing password",
-    )),
+    |> result.replace_error(error.InternalServerError("failed hashing password")),
   )
 
   case argus.verify(password_hash, password) {
     Ok(True) -> Ok(user)
-    Ok(False) -> Error(errors.Unauthorized)
-    Error(err) -> Error(errors.HashError(err))
+    Ok(False) -> Error(error.Unauthorized)
+    Error(err) -> Error(error.HashError(err))
   }
 }
 
@@ -114,7 +112,7 @@ pub fn get_user_by_token(ctx: context.Context, token: BitArray) {
   {
     Ok(user) -> {
       list.first(user.rows)
-      |> result.replace_error(errors.NotFound("user"))
+      |> result.replace_error(error.NotFound("user"))
       |> result.map(fn(row) {
         shared.User(
           id: row.id,
@@ -126,6 +124,6 @@ pub fn get_user_by_token(ctx: context.Context, token: BitArray) {
         )
       })
     }
-    Error(err) -> Error(errors.DatabaseError(err))
+    Error(err) -> Error(error.DatabaseError(err))
   }
 }

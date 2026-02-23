@@ -4,10 +4,10 @@ import gleam/json
 import gleam/result
 import gleam/time/duration
 import server/context
-import server/errors
-import server/helpers
-import server/model/tokens
-import server/model/users
+import server/error
+import server/helper
+import server/model/token
+import server/model/user
 import validator/validator
 import wisp
 
@@ -44,26 +44,27 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
   let result = {
     use input <- result.try(
       decode.run(json, register_decoder())
-      |> result.replace_error(errors.BadRequest(
+      |> result.replace_error(error.BadRequest(
         "missing email, username, or password",
       )),
     )
 
     let _ =
       validator.new()
-      |> users.validate_username(input.username)
-      |> users.validate_email(input.email)
-      |> users.validate_password(input.password)
+      |> user.validate_username(input.username)
+      |> user.validate_email(input.email)
+      |> user.validate_password(input.password)
       |> validator.valid
 
-    use password_bits <- result.try(users.hash_password(input.password))
+    use password_bits <- result.try(user.hash_password(input.password))
 
-    users.create_user(ctx, input.username, input.email, password_bits)
+    user.create_user(ctx, input.username, input.email, password_bits)
   }
 
   case result {
-    Ok(_) -> helpers.message_response("user created", 201)
-    Error(err) -> errors.handle_error(req, err)
+    Ok(_) ->
+      helper.json_response(["message"], [json.string("user created")], 201)
+    Error(err) -> error.handle_error(req, err)
   }
 }
 
@@ -98,29 +99,29 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
   let result = {
     use input <- result.try(case decode.run(json, create_token_decoder()) {
       Ok(input) -> Ok(input)
-      Error(_) -> Error(errors.BadRequest("failed to decode body"))
+      Error(_) -> Error(error.BadRequest("failed to decode body"))
     })
 
     let _ =
       validator.new()
-      |> users.validate_email(input.email)
-      |> users.validate_password(input.password)
+      |> user.validate_email(input.email)
+      |> user.validate_password(input.password)
       |> validator.valid
 
-    use user <- result.try(users.verify_user(ctx, input.email, input.password))
+    use user <- result.try(user.verify_user(ctx, input.email, input.password))
 
-    use token <- result.try(tokens.create_new_token(
+    use token <- result.try(token.create_new_token(
       ctx,
       user.id,
       duration.hours(365 * 24),
-      tokens.scope_authentication,
+      token.scope_authentication,
     ))
 
     Ok(token.plaintext)
   }
 
   case result {
-    Ok(token) -> helpers.json_response(json.string(token), "token", 201)
-    Error(err) -> errors.handle_error(req, err)
+    Ok(token) -> helper.json_response(["token"], [json.string(token)], 201)
+    Error(err) -> error.handle_error(req, err)
   }
 }

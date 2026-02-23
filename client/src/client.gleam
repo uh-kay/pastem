@@ -145,20 +145,22 @@ fn save_snippet(snippet) -> Effect(Msg) {
 
 fn view(model: Model) -> Element(Msg) {
   case model.current_route {
-    Index ->
+    Home ->
       html.div([], [
         html.h1([attribute.class("text-blue-500 text-2xl")], [
           html.text("Snippet List"),
         ]),
         view_snippet_list(model.snippets),
       ])
-    SnippetDetail ->
+    ShowSnippet(id) ->
       html.div([], [
         html.h1([attribute.class("text-blue-500 text-2xl")], [
           html.text("Snippet"),
         ]),
+        html.p([], [html.text(int.to_string(id))]),
         // view_snippet_list(model.snippets),
       ])
+    NotFound -> element.none()
   }
 }
 

@@ -4,8 +4,8 @@ import gleam/httpc
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
-import server/errors.{InternalServerError}
-import server/helpers
+import server/error.{InternalServerError}
+import server/helper
 
 pub type Header {
   Header(key: String, value: String)
@@ -18,7 +18,7 @@ pub fn send_request(
   headers headers: List(Header),
 ) {
   use api_req <- result.try(
-    request.to(helpers.api_url() <> path)
+    request.to(helper.api_url() <> path)
     |> result.replace_error(InternalServerError("invalid URL")),
   )
 

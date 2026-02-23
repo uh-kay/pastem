@@ -8,21 +8,21 @@ import lustre/attribute
 import lustre/element/html
 import server/api_route/auth.{CreateToken}
 import server/component/input
-import server/errors
-import server/helpers
+import server/error
+import server/helper
 import server/page/request.{Header}
 import wisp
 
 type LoginError {
   CouldNotParseForm(form.Form(auth.CreateToken))
-  TokenRequestFailed(errors.AppError)
+  TokenRequestFailed(error.AppError)
   CouldNotDecodeToken(json.DecodeError)
 }
 
 pub fn login_page(req) {
   let form = login_form()
 
-  helpers.html_response(req, login_view(form), 200)
+  helper.html_response(req, "Login", login_view(form), 200)
 }
 
 fn login_view(form) {
@@ -103,7 +103,7 @@ pub fn login_submit(req) {
       )
 
     Error(CouldNotParseForm(form)) ->
-      helpers.html_response(req, login_view(form), 422)
-    Error(_) -> helpers.html_error_response(500)
+      helper.html_response(req, "Login", login_view(form), 422)
+    Error(_) -> helper.html_error_response(500)
   }
 }

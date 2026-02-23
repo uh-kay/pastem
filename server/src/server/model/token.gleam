@@ -4,7 +4,7 @@ import gleam/time/duration
 import gleam/time/timestamp
 import server/context
 import server/db
-import server/errors
+import server/error
 import server/sql
 
 pub const scope_authentication = "authentication"
@@ -45,6 +45,6 @@ pub fn create_new_token(
     |> db.exec(ctx.db, _)
   {
     Ok(_) -> Ok(token)
-    Error(err) -> Error(errors.DatabaseError(err))
+    Error(err) -> Error(error.DatabaseError(err))
   }
 }

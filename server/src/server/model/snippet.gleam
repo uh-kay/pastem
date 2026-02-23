@@ -7,8 +7,8 @@ import gleam/time/timestamp
 import pog
 import server/context
 import server/db
-import server/errors
-import server/helpers
+import server/error
+import server/helper
 import server/sql
 import shared
 import validator/validator
@@ -51,10 +51,10 @@ pub fn validate_ttl(validator: validator.Validator, ttl: Int) {
 
 pub fn list_snippets(ctx: context.Context, limit, offset) {
   case
-    sql.get_snippets(helpers.current_time(), limit, offset)
+    sql.get_snippets(helper.current_time(), limit, offset)
     |> db.query(ctx.db, _)
   {
-    Ok(pog.Returned(0, _)) -> Error(errors.NotFound("snippet"))
+    Ok(pog.Returned(0, _)) -> Error(error.NotFound("snippet"))
     Ok(rows) ->
       Ok({
         rows.rows
@@ -72,22 +72,22 @@ pub fn list_snippets(ctx: context.Context, limit, offset) {
           )
         })
       })
-    Error(err) -> Error(errors.DatabaseError(err))
+    Error(err) -> Error(error.DatabaseError(err))
   }
 }
 
 pub fn get_snippet(
   ctx: context.Context,
   id: Int,
-) -> Result(shared.Snippet, errors.AppError) {
+) -> Result(shared.Snippet, error.AppError) {
   use snippet <- result.try(
-    sql.get_snippet(id, helpers.current_time())
+    sql.get_snippet(id, helper.current_time())
     |> db.query(ctx.db, _)
-    |> result.map_error(errors.DatabaseError),
+    |> result.map_error(error.DatabaseError),
   )
 
   list.first(snippet.rows)
-  |> result.replace_error(errors.NotFound("snippet"))
+  |> result.replace_error(error.NotFound("snippet"))
   |> result.map(fn(row) {
     shared.Snippet(
       id: row.id,
@@ -115,11 +115,11 @@ pub fn get_snippet(
 //     title,
 //     content,
 //     _,
-//     helpers.current_time(),
-//     helpers.current_time(),
+//     helper.current_time(),
+//     helper.current_time(),
 //   )
 //   |> db.exec(ctx.db, _)
-//   |> result.map_error(errors.DatabaseError)
+//   |> result.map_error(error.DatabaseError)
 // }
 
 pub fn create_snippet(
@@ -136,12 +136,12 @@ pub fn create_snippet(
         title,
         content,
         _,
-        helpers.current_time(),
-        helpers.current_time(),
+        helper.current_time(),
+        helper.current_time(),
       )
       |> db.exec(ctx.db, _)
-      |> result.map_error(errors.DatabaseError)
-    option.None -> Error(errors.Unauthorized)
+      |> result.map_error(error.DatabaseError)
+    option.None -> Error(error.Unauthorized)
   }
 }
 
@@ -155,15 +155,15 @@ pub fn update_snippet(
 
   case title, content {
     option.None, option.None ->
-      Error(errors.BadRequest("missing title and content"))
+      Error(error.BadRequest("missing title and content"))
     option.None, option.Some(content) ->
       sql.update_snippet(old_snippet.title, content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
-      |> result.map_error(errors.DatabaseError)
+      |> result.map_error(error.DatabaseError)
     option.Some(title), _ ->
       sql.update_snippet(title, old_snippet.content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
-      |> result.map_error(errors.DatabaseError)
+      |> result.map_error(error.DatabaseError)
   }
 }
 
@@ -175,17 +175,17 @@ pub fn update_snippet(
 // ) {
 //   case title, content {
 //     option.None, option.None ->
-//       Error(errors.BadRequest("missing title and content"))
+//       Error(error.BadRequest("missing title and content"))
 //     _, _ ->
 //       {
 //         use conn <- pog.transaction(ctx.db)
 
 //         sql.update_snippet(id, title, content)
 //         |> db.exec(conn, _)
-//         |> result.map_error(errors.DatabaseError)
+//         |> result.map_error(error.DatabaseError)
 //       }
 //       |> result.map_error(fn(err) { case err {
-//         pog.TransactionQueryError(err) -> errors.DatabaseError(err)
+//         pog.TransactionQueryError(err) -> error.DatabaseError(err)
 //         pog.TransactionRolledBack(err) -> todo as "transaction error"
 //       }})
 //   }
@@ -194,5 +194,17 @@ pub fn update_snippet(
 pub fn delete_snippet(ctx: context.Context, id: Int) {
   sql.delete_snippet(id)
   |> db.exec(ctx.db, _)
-  |> result.map_error(errors.DatabaseError)
+  |> result.map_error(error.DatabaseError)
+}
+
+pub fn get_snippet_count(ctx: context.Context) -> Result(Int, error.AppError) {
+  sql.get_snippet_count(helper.current_time())
+  |> db.query(ctx.db, _)
+  |> result.map_error(error.DatabaseError)
+  |> result.map(fn(count) {
+    case list.first(count.rows) {
+      Ok(count) -> count.count
+      Error(_) -> 0
+    }
+  })
 }
