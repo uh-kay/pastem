@@ -14,3 +14,6 @@ style:
 
 watch:
     watchexec -e gleam --stop-timeout 500ms -r just run
+
+test:
+    gleam test

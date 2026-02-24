@@ -1,53 +1,52 @@
-// import birdie
-// import gleam/http
-// import gleam/http/request
-// import gleam/json
-// import gleam/option
-// import gleeunit/should
-// import helpers
-// import logging
-// import pog
-// import server/context
-// import server/router
-// import wisp
-// import wisp/simulate
+import birdie
+import gleam/http
+import gleam/http/request
+import gleam/json
+import gleam/option
+import gleeunit/should
+import helpers
+import logging
+import pog
+import server/context
+import server/router
+import wisp
+import wisp/simulate
 
-// pub type Logger {
-//   Logger(log: fn(String) -> Nil)
-// }
+pub type Logger {
+  Logger(log: fn(String) -> Nil)
+}
 
-// fn check_request(
-//   db,
-//   method,
-//   auth: Bool,
-//   body: option.Option(json.Json),
-//   path,
-//   expected_status,
-// ) {
-//   let ctx = context.Context(db: db, user: option.None, snippet: option.None)
-//   let req = case auth {
-//     True ->
-//       simulate.request(method, path)
-//       |> request.set_header("authorization", "Bearer test")
-//     False -> simulate.request(method, path)
-//   }
-//   let req = case body {
-//     option.Some(json) -> simulate.json_body(req, json)
-//     option.None -> req
-//   }
-//   let assert Ok(priv_directory) = wisp.priv_directory("server")
-//   let static_directory = priv_directory <> "/static"
+fn check_request(
+  db,
+  method,
+  auth: Bool,
+  body: option.Option(json.Json),
+  path,
+  expected_status,
+) {
+  let ctx = context.Context(db: db, user: option.None, snippet: option.None)
+  let req = case auth {
+    True ->
+      simulate.request(method, path)
+      |> request.set_header("authorization", "Bearer test")
+    False -> simulate.request(method, path)
+  }
+  let req = case body {
+    option.Some(json) -> simulate.json_body(req, json)
+    option.None -> req
+  }
+  let assert Ok(priv_directory) = wisp.priv_directory("server")
+  let static_directory = priv_directory <> "/static"
 
-//   let res = router.handle_request(ctx, static_directory, req)
+  let res = router.handle_request(ctx, static_directory, req)
 
-//   // set log level to critical to suppress error
-//   logging.set_level(logging.Critical)
+  // set log level to critical to suppress error
+  logging.set_level(logging.Critical)
 
-//   res.status |> should.equal(expected_status)
+  res.status |> should.equal(expected_status)
 
-//   simulate.read_body(res)
-// }
-
+  simulate.read_body(res)
+}
 // pub fn list_snippets_test() {
 //   helpers.mock_query(Ok(1))
 //   |> check_request(http.Get, False, option.None, "/api/snippets", 200)

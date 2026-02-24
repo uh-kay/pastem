@@ -20,18 +20,16 @@ pub fn main() -> Nil {
   let assert Ok(priv_directory) = wisp.priv_directory("server")
   let static_directory = priv_directory <> "/static"
 
-  let db_pool_name = process.new_name("db_pool")
-  let assert Ok(database_url) = envoy.get("DATABASE_URL")
-  let assert Ok(pog_config) = pog.url_config(db_pool_name, database_url)
-  let assert Ok(_) = pog_config |> pog.pool_size(10) |> pog.start
-  let con = pog.named_connection(db_pool_name)
+  let pog_config = pog_config()
+  let assert Ok(_) = pog_config |> pog.start
+  let con = pog.named_connection(pog_config.pool_name)
 
   let secret_key_base =
     result.unwrap(envoy.get("SECRET_KEY_BASE"), "changethis")
   let port_str = result.unwrap(envoy.get("PORT"), "8000")
   let assert Ok(port) = int.parse(port_str)
 
-  let context = context.Context(db.Pog(con), option.None, option.None)
+  let context = context.Context(con, option.None, option.None)
   let handler = router.handle_request(context, static_directory, _)
 
   let assert Ok(_) =
@@ -48,4 +46,11 @@ pub fn main() -> Nil {
   )
 
   process.sleep_forever()
+}
+
+pub fn pog_config() -> pog.Config {
+  let db_pool_name = process.new_name("db_pool")
+  let assert Ok(database_url) = envoy.get("DATABASE_URL")
+  let assert Ok(pog_config) = pog.url_config(db_pool_name, database_url)
+  pog_config |> pog.pool_size(10)
 }
