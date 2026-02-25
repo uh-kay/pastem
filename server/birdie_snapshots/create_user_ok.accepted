@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: create user ok
+file: ./test/auth_test.gleam
+test_name: register_ok_test
+---
+{"message":"user created"}

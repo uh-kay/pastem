@@ -1,10 +1,25 @@
+import gleam/option.{None}
 import gleeunit
 import global_value
+import logging
 import pog
 import server
+import server/context.{Context}
+import wisp
 
 pub fn main() -> Nil {
+  logging.set_level(logging.Error)
+
   gleeunit.main()
+}
+
+pub fn setup_test(db) {
+  let assert Ok(priv_directory) = wisp.priv_directory("server")
+  let static_directory = priv_directory <> "/static"
+
+  let ctx = Context(db: db, user: None, snippet: None)
+
+  #(static_directory, ctx)
 }
 
 pub fn with_connection(test_case: fn(pog.Connection) -> a) -> Nil {

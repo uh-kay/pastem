@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: create user email conflict
+file: ./test/auth_test.gleam
+test_name: register_email_conflict_test
+---
+{"error":"email already exists"}

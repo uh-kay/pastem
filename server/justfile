@@ -9,6 +9,12 @@ run:
 parrot:
     gleam run -m parrot
 
+birb:
+    gleam run -m birdie
+
+birb-dead:
+    gleam run -m birdie stale delete
+
 style:
     ./bin/tailwindcss-linux-x64 -i priv/static/server/input.css -o priv/static/server/output.css --minify --watch
 

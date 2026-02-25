@@ -30,7 +30,7 @@ pub fn add_error(validator: Validator, key: String, message: String) {
 }
 
 pub fn check(validator: Validator, ok: Bool, key: String, message: String) {
-  case !ok {
+  case ok {
     True -> Validator(errors: dict.insert(validator.errors, key, message))
     False -> validator
   }

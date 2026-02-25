@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: validate username empty
+file: ./test/model/user_test.gleam
+test_name: validate_username_empty_test
+---
+Error(ValidationError(dict.from_list([#("username", "must be provided")])))

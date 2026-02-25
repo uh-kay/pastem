@@ -17,23 +17,19 @@ pub fn validate_title(validator: validator.Validator, title: String) {
   let len = string.length(title)
 
   validator
-  |> validator.check(!string.is_empty(title), "title", "must be provided")
-  |> validator.check(len >= 1, "title", "must be at least 1 byte long")
-  |> validator.check(
-    len <= 255,
-    "title",
-    "must not be more than 255 bytes long",
-  )
+  |> validator.check(string.is_empty(title), "title", "must be provided")
+  |> validator.check(len < 1, "title", "must be at least 1 byte long")
+  |> validator.check(len > 255, "title", "must not be more than 255 bytes long")
 }
 
 pub fn validate_content(validator: validator.Validator, content: String) {
   let len = string.length(content)
 
   validator
-  |> validator.check(!string.is_empty(content), "content", "must be provided")
-  |> validator.check(len >= 1, "content", "must be at least 1 byte long")
+  |> validator.check(string.is_empty(content), "content", "must be provided")
+  |> validator.check(len < 1, "content", "must be at least 1 byte long")
   |> validator.check(
-    len <= 4096,
+    len > 4096,
     "content",
     "must not be more than 4096 bytes long",
   )
@@ -41,9 +37,9 @@ pub fn validate_content(validator: validator.Validator, content: String) {
 
 pub fn validate_ttl(validator: validator.Validator, ttl: Int) {
   validator
-  |> validator.check(ttl > 0, "ttl", "must be at least 1 hour")
+  |> validator.check(ttl < 1, "ttl", "must be at least 1 hour")
   |> validator.check(
-    ttl <= 7 * 24,
+    ttl > 7 * 24,
     "ttl",
     "must not be more than " <> int.to_string(7 * 24) <> " hours",
   )

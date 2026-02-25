@@ -19,6 +19,7 @@ pub type AppError {
   DatabaseError(pog.QueryError)
   HashError(argus.HashError)
   ValidationError(dict.Dict(String, String))
+  Conflict(pog.QueryError)
 }
 
 pub fn handle_error(req: Request, err: AppError) -> Response {
@@ -44,6 +45,19 @@ pub fn handle_error(req: Request, err: AppError) -> Response {
     ValidationError(_) -> {
       format_log(req, None, message) |> wisp.log_warning()
       helper.error_response(message, 400)
+    }
+    Conflict(err) -> {
+      let key = case err {
+        pog.ConstraintViolated(_, constraint, _) -> {
+          case string.split(constraint, "_") {
+            [_, key, ..] -> key
+            _ -> ""
+          }
+        }
+        _ -> ""
+      }
+      format_log(req, None, message)
+      helper.error_response(key <> " already exists", 409)
     }
   }
 }
@@ -107,6 +121,7 @@ pub fn app_error_to_string(err: AppError) -> String {
         |> list.map(fn(pair) { pair.0 <> ": " <> pair.1 })
         |> string.join(", ")
       }
+    Conflict(err) -> pog_error_to_string(err)
   }
 }
 

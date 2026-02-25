@@ -83,12 +83,13 @@ pub fn store_snippet(ctx: Context, req: Request) {
       decode.run(json, store_snippet_decoder())
         |> result.replace_error(BadRequest("missing title, content, or ttl")),
       fn(input) {
-        let _ =
+        use _ <- result.try(
           validator.new()
           |> snippet.validate_title(input.title)
           |> snippet.validate_content(input.content)
           |> snippet.validate_ttl(input.ttl)
-          |> validator.valid
+          |> validator.valid,
+        )
 
         let expires_at =
           timestamp.add(timestamp.system_time(), duration.hours(input.ttl))
@@ -132,7 +133,7 @@ pub fn update_snippet(ctx: Context, req: Request, id: String) {
       |> result.replace_error(BadRequest("missing title and content")),
     )
 
-    let _ =
+    use _ <- result.try(
       case input.title, input.content {
         Some(title), Some(content) ->
           validator.new()
@@ -146,7 +147,8 @@ pub fn update_snippet(ctx: Context, req: Request, id: String) {
           |> snippet.validate_content(content)
         None, None -> validator.new()
       }
-      |> validator.valid
+      |> validator.valid,
+    )
 
     use id <- result.try(
       int.parse(id) |> result.replace_error(BadRequest("invalid id")),

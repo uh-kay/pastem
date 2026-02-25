@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: validate username too short
+file: ./test/model/user_test.gleam
+test_name: validate_username_too_short_test
+---
+Error(ValidationError(dict.from_list([#("username", "must be at least 3 bytes long")])))

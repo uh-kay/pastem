@@ -3,6 +3,7 @@ import gleam/bit_array
 import gleam/list
 import gleam/result
 import gleam/string
+import pog
 import server/context
 import server/db
 import server/error
@@ -13,12 +14,17 @@ import validator/validator
 
 pub fn validate_username(validator: validator.Validator, username: String) {
   let len = string.length(username)
+  let is_empty = string.is_empty(username)
 
   validator
-  |> validator.check(!string.is_empty(username), "username", "must be provided")
-  |> validator.check(len >= 1, "username", "must be at least 1 byte long")
+  |> validator.check(is_empty, "username", "must be provided")
   |> validator.check(
-    len <= 255,
+    !is_empty && len < 3,
+    "username",
+    "must be at least 3 bytes long",
+  )
+  |> validator.check(
+    len > 255,
     "username",
     "must not be more than 255 bytes long",
   )
@@ -26,32 +32,29 @@ pub fn validate_username(validator: validator.Validator, username: String) {
 
 pub fn validate_email(validator: validator.Validator, email: String) {
   let len = string.length(email)
+  let is_empty = string.is_empty(email)
 
   validator
-  |> validator.check(!string.is_empty(email), "email", "must be provided")
+  |> validator.check(is_empty, "email", "must be provided")
   |> validator.check(
-    validator.matches(email, validator.email_rx()),
+    !validator.matches(email, validator.email_rx()),
     "email",
     "invalid email",
   )
-  |> validator.check(len >= 1, "email", "must be at least 1 byte long")
-  |> validator.check(
-    len <= 255,
-    "email",
-    "must not be more than 255 bytes long",
-  )
+  |> validator.check(len > 255, "email", "must not be more than 255 bytes long")
 }
 
 pub fn validate_password(validator: validator.Validator, password: String) {
   let len = string.length(password)
+  let is_empty = string.is_empty(password)
 
   validator
-  |> validator.check(!string.is_empty(password), "password", "must be provided")
-  |> validator.check(len >= 1, "password", "must be at least 1 byte long")
+  |> validator.check(is_empty, "password", "must be provided")
+  |> validator.check(len < 5, "password", "must be at least 5 bytes long")
   |> validator.check(
-    len <= 72,
+    len > 72,
     "password",
-    "must not be more than 255 bytes long",
+    "must not be more than 72 bytes long",
   )
 }
 
@@ -64,10 +67,24 @@ pub fn hash_password(password) {
   Ok(password.encoded_hash |> bit_array.from_string)
 }
 
-pub fn create_user(ctx: context.Context, username, email, password) {
-  sql.create_user(username, email, password, helper.current_time())
-  |> db.exec(ctx.db, _)
-  |> result.map_error(error.DatabaseError)
+pub fn create_user(
+  ctx: context.Context,
+  username,
+  email,
+  password,
+) -> Result(pog.Returned(Nil), error.AppError) {
+  case
+    sql.create_user(username, email, password, helper.current_time())
+    |> db.exec(ctx.db, _)
+  {
+    Ok(nil) -> Ok(nil)
+    Error(err) ->
+      case err {
+        pog.ConstraintViolated(_, _, _) -> Error(error.Conflict(err))
+        _ -> Error(error.DatabaseError(err))
+      }
+  }
+  // |> result.map_error(error.DatabaseError)
 }
 
 pub fn get_user(ctx: context.Context, email: String) {

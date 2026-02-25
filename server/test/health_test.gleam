@@ -1,10 +1,7 @@
 import birdie
 import gleam/http
 import gleam/option.{None}
-import gleeunit/should
-import server/api_route/health
 import server/context
-import server/helper
 import server/router
 import server_test
 import wisp
@@ -25,5 +22,5 @@ pub fn health_handler_test() {
     wisp.Text(text) -> text
     _ -> "error: expected text body, got something else"
   }
-  |> birdie.snap("health handler")
+  |> birdie.snap("health handler ok")
 }

@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: create user username conflict
+file: ./test/auth_test.gleam
+test_name: register_username_conflict_test
+---
+{"error":"username already exists"}
