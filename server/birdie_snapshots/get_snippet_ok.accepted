@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: get snippet ok
+file: ./test/snippet_test.gleam
+test_name: get_snippet_ok_test
+---
+{"id":0,"author_id":0,"author_name":"foo","title":"foo","content":"bar","version":1,"expires_at":0,"updated_at":0,"created_at":0}

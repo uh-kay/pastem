@@ -18,9 +18,7 @@ pub fn health_handler_test() {
   let res = router.handle_request(ctx, static_directory, req)
 
   assert res.status == 200
-  case res.body {
-    wisp.Text(text) -> text
-    _ -> "error: expected text body, got something else"
-  }
+
+  simulate.read_body(res)
   |> birdie.snap("health handler ok")
 }

@@ -1,6 +1,7 @@
--- name: CreateSnippet :exec
+-- name: CreateSnippet :one
 INSERT INTO snippets (author, title, content, expires_at, updated_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6);
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id;
 
 -- name: GetSnippets :many
 SELECT s.id, s.author as author_id, u.username as author_name, title, content, version, expires_at, s.updated_at, s.created_at

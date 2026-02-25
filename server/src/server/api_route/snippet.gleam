@@ -100,8 +100,12 @@ pub fn store_snippet(ctx: Context, req: Request) {
   }
 
   case result {
-    Ok(_) ->
-      helper.json_response(["message"], [json.string("snippet created")], 201)
+    Ok(id) ->
+      helper.json_response(
+        ["message", "snippet_id"],
+        [json.string("snippet created"), json.int(id)],
+        201,
+      )
     Error(err) -> error.handle_error(req, err)
   }
 }

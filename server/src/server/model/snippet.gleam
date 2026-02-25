@@ -125,18 +125,25 @@ pub fn create_snippet(
   expires_at: timestamp.Timestamp,
 ) {
   case ctx.user {
-    option.Some(user) ->
-      timestamp.to_unix_seconds_and_nanoseconds(expires_at).0
-      |> sql.create_snippet(
-        user.id,
-        title,
-        content,
-        _,
-        helper.current_time(),
-        helper.current_time(),
+    option.Some(user) -> {
+      use snippet <- result.try(
+        timestamp.to_unix_seconds_and_nanoseconds(expires_at).0
+        |> sql.create_snippet(
+          user.id,
+          title,
+          content,
+          _,
+          helper.current_time(),
+          helper.current_time(),
+        )
+        |> db.query(ctx.db, _)
+        |> result.map_error(error.DatabaseError),
       )
-      |> db.exec(ctx.db, _)
-      |> result.map_error(error.DatabaseError)
+
+      list.first(snippet.rows)
+      |> result.replace_error(error.NotFound("snippet"))
+      |> result.map(fn(row) { row.id })
+    }
     option.None -> Error(error.Unauthorized)
   }
 }
@@ -156,8 +163,12 @@ pub fn update_snippet(
       sql.update_snippet(old_snippet.title, content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
       |> result.map_error(error.DatabaseError)
-    option.Some(title), _ ->
+    option.Some(title), option.None ->
       sql.update_snippet(title, old_snippet.content, id, old_snippet.version)
+      |> db.exec(ctx.db, _)
+      |> result.map_error(error.DatabaseError)
+    option.Some(title), option.Some(content) ->
+      sql.update_snippet(title, content, id, old_snippet.version)
       |> db.exec(ctx.db, _)
       |> result.map_error(error.DatabaseError)
   }

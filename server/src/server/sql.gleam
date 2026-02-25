@@ -5,6 +5,10 @@ import gleam/dynamic/decode
 import gleam/option.{type Option}
 import parrot/dev
 
+pub type CreateSnippet {
+  CreateSnippet(id: Int)
+}
+
 pub fn create_snippet(
   author author: Int,
   title title: String,
@@ -15,15 +19,25 @@ pub fn create_snippet(
 ) {
   let sql =
     "INSERT INTO snippets (author, title, content, expires_at, updated_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6)"
-  #(sql, [
-    dev.ParamInt(author),
-    dev.ParamString(title),
-    dev.ParamString(content),
-    dev.ParamInt(expires_at),
-    dev.ParamInt(updated_at),
-    dev.ParamInt(created_at),
-  ])
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id"
+  #(
+    sql,
+    [
+      dev.ParamInt(author),
+      dev.ParamString(title),
+      dev.ParamString(content),
+      dev.ParamInt(expires_at),
+      dev.ParamInt(updated_at),
+      dev.ParamInt(created_at),
+    ],
+    create_snippet_decoder(),
+  )
+}
+
+pub fn create_snippet_decoder() -> decode.Decoder(CreateSnippet) {
+  use id <- decode.field(0, decode.int)
+  decode.success(CreateSnippet(id:))
 }
 
 pub type GetSnippets {
