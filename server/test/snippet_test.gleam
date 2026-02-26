@@ -110,22 +110,9 @@ pub fn get_snippet_ok_test() {
     decode.success(snippet)
   }
   let assert Ok(snippet) = json.parse(body, decoder)
-  let static_snippet =
-    shared.Snippet(
-      id: 0,
-      author_id: 0,
-      author_name: "foo",
-      title: snippet.title,
-      content: snippet.content,
-      version: 1,
-      expires_at: 0,
-      updated_at: 0,
-      created_at: 0,
-    )
 
-  shared.snippet_to_json(static_snippet)
-  |> json.to_string
-  |> birdie.snap("get snippet ok")
+  assert snippet.title == "foo"
+  assert snippet.content == "bar"
 }
 
 pub fn get_snippet_not_found_test() {
@@ -136,6 +123,7 @@ pub fn get_snippet_not_found_test() {
   let res = router.handle_request(ctx, priv_directory, req)
 
   assert res.status == 404
+
   simulate.read_body(res)
   |> birdie.snap("get snippet not found")
 }
@@ -196,4 +184,28 @@ pub fn update_snippet_ok_test() {
   // original = {"title": "foo", "content":"bar"}
   assert snippet.title == "hello"
   assert snippet.content == "world"
+}
+
+pub fn delete_snippet_ok_test() {
+  use db <- server_test.with_connection()
+  let #(priv_directory, ctx) = server_test.setup_test(db)
+
+  let token = get_token(db)
+  let res = create_snippet(db, token)
+
+  let body = simulate.read_body(res)
+  let decoder = {
+    use snippet_id <- decode.field("snippet_id", decode.int)
+    decode.success(snippet_id)
+  }
+  let assert Ok(id) = json.parse(body, decoder)
+
+  let req =
+    simulate.request(http.Delete, "/v1/snippets/" <> int.to_string(id))
+    |> simulate.header("authorization", "Bearer " <> token)
+
+  let res = router.handle_request(ctx, priv_directory, req)
+
+  let assert Error(_) = snippet.get_snippet(ctx, id)
+  assert res.status == 200
 }
