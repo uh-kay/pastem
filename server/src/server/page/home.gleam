@@ -3,7 +3,7 @@ import gleam/http
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/option
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string_tree
 import lustre/attribute
@@ -39,7 +39,7 @@ pub fn home_page(req) {
     use res <- result.try(
       request.send_request(
         "/snippets?offset=" <> int.to_string(offset),
-        body: option.None,
+        body: None,
         method: http.Get,
         headers: [],
       ),
@@ -64,7 +64,7 @@ pub fn home_page(req) {
       layout.page_layout_view(
         req,
         "Pastem",
-        snippet_list_view(snippets.snippets, page, page_count),
+        snippet_list_view(Some(snippets.snippets), page, page_count),
       )
       |> string_tree.to_string
       |> wisp.html_response(200)
@@ -72,7 +72,11 @@ pub fn home_page(req) {
     Error(err) -> {
       case err {
         BadRequest(_) -> helper.html_error_response(400)
-        NotFound(_) -> helper.html_error_response(404)
+        NotFound(_) -> {
+          layout.page_layout_view(req, "Pastem", snippet_list_view(None, 0, 0))
+          |> string_tree.to_string
+          |> wisp.html_response(200)
+        }
         Unauthorized -> helper.html_error_response(401)
         _ -> helper.html_error_response(500)
       }
@@ -80,19 +84,32 @@ pub fn home_page(req) {
   }
 }
 
-fn snippet_list_view(snippets: List(Snippet), current_page, page_count) {
-  html.div([attribute.class("max-w-2xl mx-auto p-6")], [
-    html.header([attribute.class("mb-8 border-b pb-4")], [
-      html.h1([attribute.class("text-3xl font-bold text-slate-900")], [
-        html.text("Recent Snippets"),
-      ]),
-      html.p([attribute.class("text-slate-500 mt-2")], [
-        html.text("Browse and explore public snippets."),
-      ]),
-    ]),
-    view_snippet_list(snippets),
-    paginate(current_page, page_count),
-  ])
+fn snippet_list_view(
+  snippets: option.Option(List(Snippet)),
+  current_page,
+  page_count,
+) {
+  case snippets {
+    Some(snippets) ->
+      html.div([attribute.class("max-w-2xl mx-auto p-6")], [
+        html.header([attribute.class("mb-8 border-b pb-4")], [
+          html.h1([attribute.class("text-3xl font-bold text-slate-900")], [
+            html.text("Recent Snippets"),
+          ]),
+          html.p([attribute.class("text-slate-500 mt-2")], [
+            html.text("Browse and explore public snippets."),
+          ]),
+        ]),
+        view_snippet_list(snippets),
+        paginate(current_page, page_count),
+      ])
+    None ->
+      html.div([attribute.class("max-w-2xl mx-auto p-6")], [
+        html.h1([attribute.class("text-slate-500 text-2xl")], [
+          html.text("No snippet found."),
+        ]),
+      ])
+  }
 }
 
 fn paginate(current_page, page_count) {

@@ -15,7 +15,7 @@ pub fn page_layout_view(
       html.title([], title),
       html.link([
         attribute.rel("stylesheet"),
-        attribute.href("/static/server/output.css"),
+        attribute.href("/static/output.css"),
       ]),
     ]),
     html.body([], [

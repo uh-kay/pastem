@@ -7,7 +7,6 @@ import server_test
 import wisp/simulate
 
 fn create_token(db, req) {
-  // use db <- server_test.with_connection()
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
   let assert Ok(password) = user.hash_password("password")
