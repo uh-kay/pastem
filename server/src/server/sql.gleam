@@ -180,7 +180,7 @@ pub fn delete_snippet(id id: Int) {
 pub fn create_user(
   username username: String,
   email email: String,
-  password_hash password_hash: BitArray,
+  password_hash password_hash: String,
   created_at created_at: Int,
 ) {
   let sql =
@@ -189,7 +189,7 @@ VALUES ($1, $2, $3, $4)"
   #(sql, [
     dev.ParamString(username),
     dev.ParamString(email),
-    dev.ParamBitArray(password_hash),
+    dev.ParamString(password_hash),
     dev.ParamInt(created_at),
   ])
 }
@@ -199,7 +199,7 @@ pub type GetUserByEmail {
     id: Int,
     username: String,
     email: String,
-    password_hash: BitArray,
+    password_hash: String,
     role_level: Int,
     created_at: Int,
   )
@@ -218,7 +218,7 @@ pub fn get_user_by_email_decoder() -> decode.Decoder(GetUserByEmail) {
   use id <- decode.field(0, decode.int)
   use username <- decode.field(1, decode.string)
   use email <- decode.field(2, decode.string)
-  use password_hash <- decode.field(3, decode.bit_array)
+  use password_hash <- decode.field(3, decode.string)
   use role_level <- decode.field(4, decode.int)
   use created_at <- decode.field(5, decode.int)
   decode.success(GetUserByEmail(
@@ -236,7 +236,7 @@ pub type GetUserByToken {
     id: Int,
     username: String,
     email: String,
-    password_hash: BitArray,
+    password_hash: String,
     role_level: Int,
     created_at: Int,
   )
@@ -256,7 +256,7 @@ pub fn get_user_by_token_decoder() -> decode.Decoder(GetUserByToken) {
   use id <- decode.field(0, decode.int)
   use username <- decode.field(1, decode.string)
   use email <- decode.field(2, decode.string)
-  use password_hash <- decode.field(3, decode.bit_array)
+  use password_hash <- decode.field(3, decode.string)
   use role_level <- decode.field(4, decode.int)
   use created_at <- decode.field(5, decode.int)
   decode.success(GetUserByToken(

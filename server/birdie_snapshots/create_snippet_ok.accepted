@@ -1,7 +1,0 @@
----
-version: 1.5.4
-title: create snippet ok
-file: ./test/snippet_test.gleam
-test_name: create_snippet_ok_test
----
-{"message":"snippet created","snippet_id":11}

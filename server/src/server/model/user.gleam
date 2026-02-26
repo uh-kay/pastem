@@ -1,5 +1,4 @@
 import argus
-import gleam/bit_array
 import gleam/list
 import gleam/result
 import gleam/string
@@ -64,7 +63,7 @@ pub fn hash_password(password) {
     |> argus.hash(password, argus.gen_salt())
     |> result.map_error(error.HashError),
   )
-  Ok(password.encoded_hash |> bit_array.from_string)
+  Ok(password.encoded_hash)
 }
 
 pub fn create_user(
@@ -84,7 +83,6 @@ pub fn create_user(
         _ -> Error(error.DatabaseError(err))
       }
   }
-  // |> result.map_error(error.DatabaseError)
 }
 
 pub fn get_user(ctx: context.Context, email: String) {
@@ -110,12 +108,7 @@ pub fn get_user(ctx: context.Context, email: String) {
 pub fn verify_user(ctx: context.Context, email: String, password: String) {
   use user <- result.try(get_user(ctx, email))
 
-  use password_hash <- result.try(
-    bit_array.to_string(user.password)
-    |> result.replace_error(error.InternalServerError("failed hashing password")),
-  )
-
-  case argus.verify(password_hash, password) {
+  case argus.verify(user.password, password) {
     Ok(True) -> Ok(user)
     Ok(False) -> Error(error.Unauthorized)
     Error(err) -> Error(error.HashError(err))

@@ -1,4 +1,3 @@
-import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option
@@ -84,7 +83,7 @@ pub type User {
     id: Int,
     username: String,
     email: String,
-    password: BitArray,
+    password: String,
     role_level: Int,
     created_at: Int,
   )
@@ -96,7 +95,7 @@ pub fn user_to_json(user: User) -> json.Json {
     #("id", json.int(id)),
     #("username", json.string(username)),
     #("email", json.string(email)),
-    #("password", bitarray_encoder(password)),
+    #("password", json.string(password)),
     #("role_level", json.int(role_level)),
     #("created_at", json.int(created_at)),
   ])
@@ -106,7 +105,7 @@ pub fn user_decoder() -> decode.Decoder(User) {
   use id <- decode.field("id", decode.int)
   use username <- decode.field("username", decode.string)
   use email <- decode.field("email", decode.string)
-  use password <- decode.field("password", decode.bit_array)
+  use password <- decode.field("password", decode.string)
   use role_level <- decode.field("role_level", decode.int)
   use created_at <- decode.field("created_at", decode.int)
   decode.success(User(
@@ -117,13 +116,6 @@ pub fn user_decoder() -> decode.Decoder(User) {
     role_level:,
     created_at:,
   ))
-}
-
-pub fn bitarray_encoder(bit_array: BitArray) {
-  case bit_array.to_string(bit_array) {
-    Ok(text) -> json.string(text)
-    Error(_) -> json.string("Invalid UTF-8 Data")
-  }
 }
 
 pub type Role {
