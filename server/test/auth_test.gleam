@@ -6,64 +6,43 @@ import server/router
 import server_test
 import wisp/simulate
 
-fn create_token(db, req) {
-  let #(priv_directory, ctx) = server_test.setup_test(db)
-
-  let assert Ok(password) = user.hash_password("password")
-  let assert Ok(_) = user.create_user(ctx, "foo", "foo@example.com", password)
-
-  router.handle_request(ctx, priv_directory, req)
-}
-
 pub fn create_token_ok_test() {
   use db <- server_test.with_connection()
 
-  let req =
-    simulate.request(http.Post, "/v1/tokens")
-    |> simulate.json_body(
-      json.object([
-        #("email", json.string("foo@example.com")),
-        #("password", json.string("password")),
-      ]),
-    )
-
-  let res = create_token(db, req)
-
-  assert res.status == 201
+  test_create_token(db, "foo@example.com", "password", 201)
 }
 
 pub fn create_token_invalid_password_test() {
   use db <- server_test.with_connection()
 
-  let req =
-    simulate.request(http.Post, "/v1/tokens")
-    |> simulate.json_body(
-      json.object([
-        #("email", json.string("foo@example.com")),
-        #("password", json.string("zoinks")),
-      ]),
-    )
-
-  let res = create_token(db, req)
-
-  assert res.status == 401
+  test_create_token(db, "foo@example.com", "zoinks", 401)
 }
 
 pub fn create_token_invalid_email_test() {
   use db <- server_test.with_connection()
 
+  test_create_token(db, "bar@example.com", "password", 404)
+}
+
+fn test_create_token(db, email, password, expected_status) -> Nil {
+  let #(priv_directory, ctx) = server_test.setup_test(db)
+
+  let assert Ok(user_password) = user.hash_password("password")
+  let assert Ok(_) =
+    user.create_user(ctx, "foo", "foo@example.com", user_password)
+
   let req =
     simulate.request(http.Post, "/v1/tokens")
     |> simulate.json_body(
       json.object([
-        #("email", json.string("bar@example.com")),
-        #("password", json.string("password")),
+        #("email", json.string(email)),
+        #("password", json.string(password)),
       ]),
     )
 
-  let res = create_token(db, req)
+  let res = router.handle_request(ctx, priv_directory, req)
 
-  assert res.status == 404
+  assert res.status == expected_status
 }
 
 fn register(db, req) {
