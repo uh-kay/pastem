@@ -22,9 +22,8 @@ fn register_form() {
   form.new({
     use username <- form.field("username", form.parse_string)
     use email <- form.field("email", form.parse_email)
-    use password <- form.field("password", form.parse_string)
 
-    form.success(auth.Register(username:, email:, password:))
+    form.success(auth.Register(username:, email:))
   })
 }
 
@@ -37,9 +36,6 @@ fn register_view(form) {
       attribute.required(True),
     ]),
     input.field_input(form, "email", "text", "Email", [attribute.required(True)]),
-    input.field_input(form, "password", "password", "Password", [
-      attribute.required(True),
-    ]),
     html.button(
       [
         attribute.type_("submit"),

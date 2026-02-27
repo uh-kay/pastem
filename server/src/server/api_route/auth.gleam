@@ -1,26 +1,28 @@
 import gleam/dynamic/decode
 import gleam/http
 import gleam/json
+import gleam/list
 import gleam/result
 import gleam/time/duration
 import server/context
 import server/error
 import server/helper
+import server/model/session
 import server/model/token
 import server/model/user
 import validator/validator
 import wisp
+import youid/uuid
 
 pub type Register {
-  Register(username: String, email: String, password: String)
+  Register(username: String, email: String)
 }
 
 pub fn register_to_json(register: Register) -> json.Json {
-  let Register(username:, email:, password:) = register
+  let Register(username:, email:) = register
   json.object([
     #("username", json.string(username)),
     #("email", json.string(email)),
-    #("password", json.string(password)),
   ])
 }
 
@@ -34,8 +36,7 @@ pub fn register(ctx: context.Context, req: wisp.Request) {
 fn register_decoder() -> decode.Decoder(Register) {
   use username <- decode.field("username", decode.string)
   use email <- decode.field("email", decode.string)
-  use password <- decode.field("password", decode.string)
-  decode.success(Register(username:, email:, password:))
+  decode.success(Register(username:, email:))
 }
 
 fn register_user(ctx: context.Context, req: wisp.Request) {
@@ -53,13 +54,10 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
       validator.new()
       |> user.validate_username(input.username)
       |> user.validate_email(input.email)
-      |> user.validate_password(input.password)
       |> validator.valid,
     )
 
-    use password_bits <- result.try(user.hash_password(input.password))
-
-    user.create_user(ctx, input.username, input.email, password_bits)
+    user.create_user(ctx, input.username, input.email)
   }
 
   case result {
@@ -69,32 +67,23 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
   }
 }
 
-pub fn tokens(ctx: context.Context, req: wisp.Request) {
-  case req.method {
-    http.Post -> create_token(ctx, req)
-    _ -> wisp.method_not_allowed([http.Post])
-  }
-}
-
 pub type CreateToken {
-  CreateToken(email: String, password: String)
+  CreateToken(email: String)
 }
 
 pub fn create_token_to_json(create_token: CreateToken) -> json.Json {
-  let CreateToken(email:, password:) = create_token
+  let CreateToken(email) = create_token
   json.object([
     #("email", json.string(email)),
-    #("password", json.string(password)),
   ])
 }
 
 pub fn create_token_decoder() -> decode.Decoder(CreateToken) {
   use email <- decode.field("email", decode.string)
-  use password <- decode.field("password", decode.string)
-  decode.success(CreateToken(email:, password:))
+  decode.success(CreateToken(email:))
 }
 
-fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
+pub fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
   use json <- wisp.require_json(req)
 
   let result = {
@@ -106,17 +95,15 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
     use _ <- result.try(
       validator.new()
       |> user.validate_email(input.email)
-      |> user.validate_password(input.password)
       |> validator.valid,
     )
 
-    use user <- result.try(user.verify_user(ctx, input.email, input.password))
+    use user <- result.try(user.get_user(ctx, input.email))
 
     use token <- result.try(token.create_new_token(
       ctx,
       user.id,
       duration.hours(365 * 24),
-      token.scope_authentication,
     ))
 
     Ok(token.plaintext)
@@ -124,6 +111,35 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
 
   case result {
     Ok(token) -> helper.json_response(["token"], [json.string(token)], 201)
+    Error(err) -> error.handle_error(req, err)
+  }
+}
+
+pub fn create_session(ctx, req) {
+  let result = {
+    use token <- result.try(
+      wisp.get_query(req)
+      |> list.key_find("token")
+      |> result.replace_error(error.BadRequest("missing token")),
+    )
+
+    use user <- result.try(user.get_user_by_token(ctx, token))
+
+    use session_bit_aray <- result.try(session.create_session(
+      ctx,
+      user.id,
+      duration.hours(24 * 365),
+    ))
+
+    case uuid.from_bit_array(session_bit_aray) {
+      Ok(uuid) -> Ok(uuid.to_string(uuid))
+      Error(_) -> Error(error.InternalServerError("error parsing bit array"))
+    }
+  }
+
+  case result {
+    Ok(session_id) ->
+      helper.json_response(["session_id"], [json.string(session_id)], 200)
     Error(err) -> error.handle_error(req, err)
   }
 }

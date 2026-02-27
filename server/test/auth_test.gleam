@@ -9,36 +9,23 @@ import wisp/simulate
 pub fn create_token_ok_test() {
   use db <- server_test.with_connection()
 
-  test_create_token(db, "foo@example.com", "password", 201)
-}
-
-pub fn create_token_invalid_password_test() {
-  use db <- server_test.with_connection()
-
-  test_create_token(db, "foo@example.com", "zoinks", 401)
+  test_create_token(db, "foo@example.com", 201)
 }
 
 pub fn create_token_invalid_email_test() {
   use db <- server_test.with_connection()
 
-  test_create_token(db, "bar@example.com", "password", 404)
+  test_create_token(db, "bar@example.com", 404)
 }
 
-fn test_create_token(db, email, password, expected_status) -> Nil {
+fn test_create_token(db, email, expected_status) -> Nil {
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
-  let assert Ok(user_password) = user.hash_password("password")
-  let assert Ok(_) =
-    user.create_user(ctx, "foo", "foo@example.com", user_password)
+  let assert Ok(_) = user.create_user(ctx, "foo", "foo@example.com")
 
   let req =
     simulate.request(http.Post, "/v1/tokens")
-    |> simulate.json_body(
-      json.object([
-        #("email", json.string(email)),
-        #("password", json.string(password)),
-      ]),
-    )
+    |> simulate.json_body(json.object([#("email", json.string(email))]))
 
   let res = router.handle_request(ctx, priv_directory, req)
 

@@ -31,9 +31,6 @@ fn login_view(form) {
       html.text("Login to Your Account"),
     ]),
     input.field_input(form, "email", "text", "Email", [attribute.required(True)]),
-    input.field_input(form, "password", "password", "Password", [
-      attribute.required(True),
-    ]),
     html.button(
       [
         attribute.type_("submit"),
@@ -49,9 +46,8 @@ fn login_view(form) {
 pub fn login_form() {
   form.new({
     use email <- form.field("email", form.parse_email)
-    use password <- form.field("password", form.parse_string)
 
-    form.success(CreateToken(email:, password:))
+    form.success(CreateToken(email:))
   })
 }
 

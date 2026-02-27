@@ -11,19 +11,15 @@ import server_test
 import shared
 import wisp/simulate
 
-fn get_token(db) {
+fn create_token(db) {
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
-  let assert Ok(password) = user.hash_password("password")
-  let assert Ok(_) = user.create_user(ctx, "foo", "foo@example.com", password)
+  let assert Ok(_) = user.create_user(ctx, "foo", "foo@example.com")
 
   let req =
     simulate.json_body(
       simulate.request(http.Post, "/v1/tokens"),
-      json.object([
-        #("email", json.string("foo@example.com")),
-        #("password", json.string("password")),
-      ]),
+      json.object([#("email", json.string("foo@example.com"))]),
     )
 
   let res = router.handle_request(ctx, priv_directory, req)
@@ -40,7 +36,26 @@ fn get_token(db) {
   }
 }
 
-pub fn create_snippet(db, token) {
+fn create_session(db, token) {
+  let #(priv_directory, ctx) = server_test.setup_test(db)
+
+  let req = simulate.request(http.Post, "/v1/sessions?token=" <> token)
+
+  let res = router.handle_request(ctx, priv_directory, req)
+
+  let body = simulate.read_body(res)
+  let decoder = {
+    use session_id <- decode.field("session_id", decode.string)
+    decode.success(session_id)
+  }
+
+  case json.parse(body, decoder) {
+    Ok(session_id) -> session_id
+    Error(err) -> string.inspect(err)
+  }
+}
+
+pub fn create_snippet(db, session_id) {
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
   let req =
@@ -53,7 +68,7 @@ pub fn create_snippet(db, token) {
       ]),
     )
     |> simulate.header("content-type", "application/json")
-    |> simulate.header("authorization", "Bearer " <> token)
+    |> simulate.header("authorization", "Bearer " <> session_id)
 
   router.handle_request(ctx, priv_directory, req)
 }
@@ -61,8 +76,10 @@ pub fn create_snippet(db, token) {
 pub fn create_snippet_ok_test() {
   use db <- server_test.with_connection()
 
-  let token = get_token(db)
-  let res = create_snippet(db, token)
+  let token = create_token(db)
+  let session_id = create_session(db, token)
+
+  let res = create_snippet(db, session_id)
 
   assert res.status == 201
 }
@@ -91,8 +108,9 @@ pub fn get_snippet_ok_test() {
   use db <- server_test.with_connection()
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
-  let token = get_token(db)
-  let res = create_snippet(db, token)
+  let token = create_token(db)
+  let session_id = create_session(db, token)
+  let res = create_snippet(db, session_id)
 
   let body = simulate.read_body(res)
   let decoder = {
@@ -132,8 +150,9 @@ pub fn list_snippets_ok_test() {
   use db <- server_test.with_connection()
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
-  let token = get_token(db)
-  create_snippet(db, token)
+  let token = create_token(db)
+  let session_id = create_session(db, token)
+  create_snippet(db, session_id)
 
   let req = simulate.request(http.Get, "/v1/snippets")
   let res = router.handle_request(ctx, priv_directory, req)
@@ -155,8 +174,9 @@ pub fn update_snippet_ok_test() {
   use db <- server_test.with_connection()
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
-  let token = get_token(db)
-  let res = create_snippet(db, token)
+  let token = create_token(db)
+  let session_id = create_session(db, token)
+  let res = create_snippet(db, session_id)
 
   let body = simulate.read_body(res)
   let decoder = {
@@ -174,7 +194,7 @@ pub fn update_snippet_ok_test() {
       ]),
     )
     |> simulate.header("content-type", "application/json")
-    |> simulate.header("authorization", "Bearer " <> token)
+    |> simulate.header("authorization", "Bearer " <> session_id)
 
   let res = router.handle_request(ctx, priv_directory, req)
 
@@ -190,8 +210,9 @@ pub fn delete_snippet_ok_test() {
   use db <- server_test.with_connection()
   let #(priv_directory, ctx) = server_test.setup_test(db)
 
-  let token = get_token(db)
-  let res = create_snippet(db, token)
+  let token = create_token(db)
+  let session_id = create_session(db, token)
+  let res = create_snippet(db, session_id)
 
   let body = simulate.read_body(res)
   let decoder = {
@@ -202,7 +223,7 @@ pub fn delete_snippet_ok_test() {
 
   let req =
     simulate.request(http.Delete, "/v1/snippets/" <> int.to_string(id))
-    |> simulate.header("authorization", "Bearer " <> token)
+    |> simulate.header("authorization", "Bearer " <> session_id)
 
   let res = router.handle_request(ctx, priv_directory, req)
 

@@ -1,14 +1,15 @@
-import gleam/crypto.{Sha256}
 import gleam/http/request
 import gleam/int
 import gleam/option.{None, Some}
 import gleam/result
 import server/context.{type Context, Context}
 import server/error.{type AppError, NotFound}
+import server/helper
 import server/model/role
 import server/model/snippet
 import server/model/user
 import wisp.{type Request, type Response}
+import youid/uuid
 
 pub fn middleware(
   req: Request,
@@ -37,28 +38,33 @@ pub fn require_auth(
   ctx: Context,
   next: fn(Request, Context) -> Response,
 ) -> Response {
-  let token = request.get_header(req, "Authorization")
+  let result = {
+    use session_id <- result.try(case request.get_header(req, "Authorization") {
+      Ok("Bearer " <> session_id) -> Ok(session_id)
+      _ -> Error(error.Unauthorized)
+    })
 
-  case token {
-    Ok("Bearer " <> t) -> {
-      let token = crypto.hash(Sha256, <<t:utf8>>)
-      case user.get_user_by_token(ctx, token) {
-        Ok(user) -> {
-          let new_ctx = Context(..ctx, user: Some(user))
-          next(req, new_ctx)
-        }
-        Error(err) -> {
-          case err {
-            NotFound(_) -> wisp.response(401)
-            _ -> error.handle_error(req, err)
-          }
-        }
-      }
-    }
-    _ -> {
-      wisp.log_warning("missing auth token")
-      wisp.response(401)
-    }
+    use session_id <- result.try(
+      uuid.from_string(session_id)
+      |> result.replace_error(error.InternalServerError(
+        "failed parsing session id",
+      )),
+    )
+
+    let session_id = uuid.to_bit_array(session_id)
+
+    use user <- result.try(user.get_user_by_session(
+      ctx,
+      session_id,
+      helper.current_time(),
+    ))
+
+    Ok(Context(..ctx, user: Some(user)))
+  }
+
+  case result {
+    Ok(new_ctx) -> next(req, new_ctx)
+    Error(err) -> error.handle_error(req, err)
   }
 }
 

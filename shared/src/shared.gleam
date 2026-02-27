@@ -83,19 +83,17 @@ pub type User {
     id: Int,
     username: String,
     email: String,
-    password: String,
     role_level: Int,
     created_at: Int,
   )
 }
 
 pub fn user_to_json(user: User) -> json.Json {
-  let User(id:, username:, email:, password:, role_level:, created_at:) = user
+  let User(id:, username:, email:, role_level:, created_at:) = user
   json.object([
     #("id", json.int(id)),
     #("username", json.string(username)),
     #("email", json.string(email)),
-    #("password", json.string(password)),
     #("role_level", json.int(role_level)),
     #("created_at", json.int(created_at)),
   ])
@@ -105,17 +103,9 @@ pub fn user_decoder() -> decode.Decoder(User) {
   use id <- decode.field("id", decode.int)
   use username <- decode.field("username", decode.string)
   use email <- decode.field("email", decode.string)
-  use password <- decode.field("password", decode.string)
   use role_level <- decode.field("role_level", decode.int)
   use created_at <- decode.field("created_at", decode.int)
-  decode.success(User(
-    id:,
-    username:,
-    email:,
-    password:,
-    role_level:,
-    created_at:,
-  ))
+  decode.success(User(id:, username:, email:, role_level:, created_at:))
 }
 
 pub type Role {

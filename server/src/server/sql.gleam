@@ -180,16 +180,14 @@ pub fn delete_snippet(id id: Int) {
 pub fn create_user(
   username username: String,
   email email: String,
-  password_hash password_hash: String,
   created_at created_at: Int,
 ) {
   let sql =
-    "INSERT INTO users (username, email, password_hash, created_at)
-VALUES ($1, $2, $3, $4)"
+    "INSERT INTO users (username, email, created_at)
+VALUES ($1, $2, $3)"
   #(sql, [
     dev.ParamString(username),
     dev.ParamString(email),
-    dev.ParamString(password_hash),
     dev.ParamInt(created_at),
   ])
 }
@@ -199,7 +197,6 @@ pub type GetUserByEmail {
     id: Int,
     username: String,
     email: String,
-    password_hash: String,
     role_level: Int,
     created_at: Int,
   )
@@ -207,7 +204,7 @@ pub type GetUserByEmail {
 
 pub fn get_user_by_email(email email: String) {
   let sql =
-    "select u.id, u.username, u.email, u.password_hash, r.level as role_level, u.created_at
+    "select u.id, u.username, u.email, r.level as role_level, u.created_at
 from users u
 join roles r on r.id = u.role_id
 where email = $1"
@@ -218,14 +215,12 @@ pub fn get_user_by_email_decoder() -> decode.Decoder(GetUserByEmail) {
   use id <- decode.field(0, decode.int)
   use username <- decode.field(1, decode.string)
   use email <- decode.field(2, decode.string)
-  use password_hash <- decode.field(3, decode.string)
-  use role_level <- decode.field(4, decode.int)
-  use created_at <- decode.field(5, decode.int)
+  use role_level <- decode.field(3, decode.int)
+  use created_at <- decode.field(4, decode.int)
   decode.success(GetUserByEmail(
     id:,
     username:,
     email:,
-    password_hash:,
     role_level:,
     created_at:,
   ))
@@ -236,61 +231,133 @@ pub type GetUserByToken {
     id: Int,
     username: String,
     email: String,
-    password_hash: String,
     role_level: Int,
     created_at: Int,
   )
 }
 
-pub fn get_user_by_token(hash hash: BitArray) {
+pub fn get_user_by_token(hash hash: String) {
   let sql =
-    "SELECT u.id, u.username, u.email, u.password_hash, r.level as role_level, u.created_at
+    "SELECT u.id, u.username, u.email, r.level as role_level, u.created_at
 FROM users u
-JOIN user_tokens t ON t.user_id = u.id
+JOIN auth_tokens t ON t.user_id = u.id
 JOIN roles r ON r.id = u.role_id
 WHERE t.hash = $1"
-  #(sql, [dev.ParamBitArray(hash)], get_user_by_token_decoder())
+  #(sql, [dev.ParamString(hash)], get_user_by_token_decoder())
 }
 
 pub fn get_user_by_token_decoder() -> decode.Decoder(GetUserByToken) {
   use id <- decode.field(0, decode.int)
   use username <- decode.field(1, decode.string)
   use email <- decode.field(2, decode.string)
-  use password_hash <- decode.field(3, decode.string)
-  use role_level <- decode.field(4, decode.int)
-  use created_at <- decode.field(5, decode.int)
+  use role_level <- decode.field(3, decode.int)
+  use created_at <- decode.field(4, decode.int)
   decode.success(GetUserByToken(
     id:,
     username:,
     email:,
-    password_hash:,
     role_level:,
     created_at:,
   ))
 }
 
-pub fn create_new_token(
-  hash hash: BitArray,
-  user_id user_id: Int,
-  expiry expiry: Int,
-  scope scope: String,
-) {
-  let sql =
-    "INSERT INTO user_tokens (hash, user_id, expiry, scope)
-VALUES ($1, $2, $3, $4)"
-  #(sql, [
-    dev.ParamBitArray(hash),
-    dev.ParamInt(user_id),
-    dev.ParamInt(expiry),
-    dev.ParamString(scope),
-  ])
+pub type GetUserBySession {
+  GetUserBySession(
+    id: Int,
+    username: String,
+    email: String,
+    role_level: Int,
+    created_at: Int,
+  )
 }
 
-pub fn delete_token(scope scope: String, user_id user_id: Int) {
+pub fn get_user_by_session(id id: BitArray, expires_at expires_at: Int) {
   let sql =
-    "DELETE FROM user_tokens
-WHERE scope = $1 AND user_id = $2"
-  #(sql, [dev.ParamString(scope), dev.ParamInt(user_id)])
+    "SELECT u.id, u.username, u.email, r.level as role_level, u.created_at
+FROM users u
+JOIN sessions s ON s.user_id = u.id
+JOIN roles r ON r.id = u.role_id
+WHERE s.id = $1 AND s.expires_at > $2"
+  #(
+    sql,
+    [dev.ParamBitArray(id), dev.ParamInt(expires_at)],
+    get_user_by_session_decoder(),
+  )
+}
+
+pub fn get_user_by_session_decoder() -> decode.Decoder(GetUserBySession) {
+  use id <- decode.field(0, decode.int)
+  use username <- decode.field(1, decode.string)
+  use email <- decode.field(2, decode.string)
+  use role_level <- decode.field(3, decode.int)
+  use created_at <- decode.field(4, decode.int)
+  decode.success(GetUserBySession(
+    id:,
+    username:,
+    email:,
+    role_level:,
+    created_at:,
+  ))
+}
+
+pub type CreateSession {
+  CreateSession(id: BitArray)
+}
+
+pub fn create_session(
+  id id: BitArray,
+  user_id user_id: Int,
+  expires_at expires_at: Int,
+) {
+  let sql =
+    "INSERT INTO sessions (id, user_id, expires_at)
+VALUES ($1, $2, $3)
+RETURNING id::uuid"
+  #(
+    sql,
+    [dev.ParamBitArray(id), dev.ParamInt(user_id), dev.ParamInt(expires_at)],
+    create_session_decoder(),
+  )
+}
+
+pub fn create_session_decoder() -> decode.Decoder(CreateSession) {
+  use id <- decode.field(0, decode.bit_array)
+  decode.success(CreateSession(id:))
+}
+
+pub type GetSessionById {
+  GetSessionById(id: BitArray, user_id: Int)
+}
+
+pub fn get_session_by_id(expires_at expires_at: Int) {
+  let sql =
+    "SELECT id, user_id FROM sessions
+WHERE expires_at > $1"
+  #(sql, [dev.ParamInt(expires_at)], get_session_by_id_decoder())
+}
+
+pub fn get_session_by_id_decoder() -> decode.Decoder(GetSessionById) {
+  use id <- decode.field(0, decode.bit_array)
+  use user_id <- decode.field(1, decode.int)
+  decode.success(GetSessionById(id:, user_id:))
+}
+
+pub fn create_new_token(
+  hash hash: String,
+  user_id user_id: Int,
+  expiry expiry: Int,
+) {
+  let sql =
+    "INSERT INTO auth_tokens (hash, user_id, expiry)
+VALUES ($1, $2, $3)"
+  #(sql, [dev.ParamString(hash), dev.ParamInt(user_id), dev.ParamInt(expiry)])
+}
+
+pub fn delete_token(user_id user_id: Int) {
+  let sql =
+    "DELETE FROM auth_tokens
+WHERE user_id = $1"
+  #(sql, [dev.ParamInt(user_id)])
 }
 
 pub type GetRoleByName {

@@ -3,7 +3,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import server/context
+import server/context.{type Context}
 import server/db
 import server/error
 import server/helper
@@ -43,20 +43,6 @@ pub fn validate_email(validator: validator.Validator, email: String) {
   |> validator.check(len > 255, "email", "must not be more than 255 bytes long")
 }
 
-pub fn validate_password(validator: validator.Validator, password: String) {
-  let len = string.length(password)
-  let is_empty = string.is_empty(password)
-
-  validator
-  |> validator.check(is_empty, "password", "must be provided")
-  |> validator.check(len < 5, "password", "must be at least 5 bytes long")
-  |> validator.check(
-    len > 72,
-    "password",
-    "must not be more than 72 bytes long",
-  )
-}
-
 pub fn hash_password(password) {
   use password <- result.try(
     argus.hasher()
@@ -67,13 +53,12 @@ pub fn hash_password(password) {
 }
 
 pub fn create_user(
-  ctx: context.Context,
+  ctx: Context,
   username,
   email,
-  password,
 ) -> Result(pog.Returned(Nil), error.AppError) {
   case
-    sql.create_user(username, email, password, helper.current_time())
+    sql.create_user(username, email, helper.current_time())
     |> db.exec(ctx.db, _)
   {
     Ok(nil) -> Ok(nil)
@@ -85,7 +70,7 @@ pub fn create_user(
   }
 }
 
-pub fn get_user(ctx: context.Context, email: String) {
+pub fn get_user(ctx: Context, email: String) {
   case sql.get_user_by_email(email) |> db.query(ctx.db, _) {
     Ok(user) -> {
       list.first(user.rows)
@@ -95,7 +80,6 @@ pub fn get_user(ctx: context.Context, email: String) {
           id: row.id,
           username: row.username,
           email: row.email,
-          password: row.password_hash,
           role_level: row.role_level,
           created_at: row.created_at,
         )
@@ -105,35 +89,52 @@ pub fn get_user(ctx: context.Context, email: String) {
   }
 }
 
-pub fn verify_user(ctx: context.Context, email: String, password: String) {
-  use user <- result.try(get_user(ctx, email))
+// pub fn verify_user(ctx: context.Context, email: String, password: String) {
+//   use user <- result.try(get_user(ctx, email))
 
-  case argus.verify(user.password, password) {
-    Ok(True) -> Ok(user)
-    Ok(False) -> Error(error.Unauthorized)
-    Error(err) -> Error(error.HashError(err))
-  }
-}
+//   case argus.verify(user.password, password) {
+//     Ok(True) -> Ok(user)
+//     Ok(False) -> Error(error.Unauthorized)
+//     Error(err) -> Error(error.HashError(err))
+//   }
+// }
 
-pub fn get_user_by_token(ctx: context.Context, token: BitArray) {
-  case
+pub fn get_user_by_token(ctx: Context, token: String) {
+  use user <- result.try(
     sql.get_user_by_token(token)
     |> db.query(ctx.db, _)
-  {
-    Ok(user) -> {
-      list.first(user.rows)
-      |> result.replace_error(error.NotFound("user"))
-      |> result.map(fn(row) {
-        shared.User(
-          id: row.id,
-          username: row.username,
-          email: row.email,
-          password: row.password_hash,
-          role_level: row.role_level,
-          created_at: row.created_at,
-        )
-      })
-    }
-    Error(err) -> Error(error.DatabaseError(err))
-  }
+    |> result.map_error(error.DatabaseError),
+  )
+
+  list.first(user.rows)
+  |> result.replace_error(error.NotFound("user"))
+  |> result.map(fn(row) {
+    shared.User(
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      role_level: row.role_level,
+      created_at: row.created_at,
+    )
+  })
+}
+
+pub fn get_user_by_session(ctx: Context, session_id, expiry) {
+  use user <- result.try(
+    sql.get_user_by_session(session_id, expiry)
+    |> db.query(ctx.db, _)
+    |> result.map_error(error.DatabaseError),
+  )
+
+  list.first(user.rows)
+  |> result.replace_error(error.NotFound("user"))
+  |> result.map(fn(row) {
+    shared.User(
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      role_level: row.role_level,
+      created_at: row.created_at,
+    )
+  })
 }
