@@ -100,11 +100,7 @@ pub fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
 
     use user <- result.try(user.get_user(ctx, input.email))
 
-    use token <- result.try(token.create_new_token(
-      ctx,
-      user.id,
-      duration.hours(365 * 24),
-    ))
+    use token <- result.try(token.create_new_token(ctx, user.id))
 
     Ok(token.plaintext)
   }

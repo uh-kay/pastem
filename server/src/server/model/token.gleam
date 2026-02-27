@@ -26,12 +26,8 @@ pub fn generate_token(user_id: Int, ttl: duration.Duration) {
   Token(user_id:, expiry: expiry_unix, plaintext:, hash:)
 }
 
-pub fn create_new_token(
-  ctx: context.Context,
-  user_id: Int,
-  ttl: duration.Duration,
-) {
-  let token = generate_token(user_id, ttl)
+pub fn create_new_token(ctx: context.Context, user_id: Int) {
+  let token = generate_token(user_id, duration.hours(1))
 
   case
     sql.create_new_token(token.plaintext, token.user_id, token.expiry)
