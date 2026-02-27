@@ -22,7 +22,7 @@ pub type Token {
 pub fn generate_token(user_id: Int, ttl: duration.Duration, scope: String) {
   let random_bytes = crypto.strong_random_bytes(16)
 
-  let plaintext = random_bytes |> bit_array.base64_encode(False)
+  let plaintext = random_bytes |> bit_array.base64_url_encode(False)
 
   let hash = crypto.hash(crypto.Sha256, <<plaintext:utf8>>)
 
