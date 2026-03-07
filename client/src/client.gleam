@@ -1,37 +1,31 @@
+import client/route.{type Route, Home, NotFound, ShowSnippet}
 import gleam/http/response.{type Response}
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/option.{type Option, None}
-import gleam/result
-import gleam/uri
+import gleam/option.{type Option, None, Some}
 import lustre
 import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
-import plinth/browser/document
-import plinth/browser/element as plinth_element
-import plinth/browser/event as plinth_event
-import plinth/browser/location
-import plinth/browser/window
+import lustre/event
 import rsvp
 import shared.{type Snippet}
 
 pub fn main() -> Nil {
-  let initial_items =
-    document.query_selector("#model")
-    |> result.map(plinth_element.inner_text)
-    |> result.try(fn(json) {
-      json.parse(json, shared.snippet_list_decoder())
-      |> result.replace_error(Nil)
-    })
-    |> result.unwrap([])
-
   let app = lustre.application(init, update, view)
-  let assert Ok(_) = lustre.start(app, "#app", initial_items)
+  let assert Ok(_) = lustre.start(app, "#app", [])
 
   Nil
+}
+
+fn fetch_snippets() {
+  let url = "/api/snippets"
+  let handler =
+    rsvp.expect_json(shared.snippet_list_decoder(), ApiReturnedSnippetList)
+
+  rsvp.get(url, handler)
 }
 
 type Model {
@@ -44,31 +38,6 @@ type Model {
   )
 }
 
-type Route {
-  Home
-  ShowSnippet(snippet_id: Int)
-  NotFound
-}
-
-fn get_route() -> Route {
-  let uri = case
-    window.self() |> window.location() |> location.pathname() |> uri.parse()
-  {
-    Ok(uri) -> uri
-    Error(_) -> uri.empty
-  }
-
-  case uri.path |> uri.path_segments {
-    [] -> Home
-    ["snippets", snippet_id] ->
-      case int.parse(snippet_id) {
-        Ok(id) -> ShowSnippet(id)
-        Error(_) -> NotFound
-      }
-    _ -> NotFound
-  }
-}
-
 fn init(snippets) {
   let model =
     Model(
@@ -78,12 +47,17 @@ fn init(snippets) {
       saving: False,
       error: None,
     )
-  #(model, effect.none())
+
+  let initial_items = fetch_snippets()
+
+  #(model, initial_items)
 }
 
 type Msg {
   ServerSavedSnippet(Result(Response(String), rsvp.Error))
-  UserClickedSnippet
+  ApiReturnedSnippetList(Result(List(Snippet), rsvp.Error))
+  ApiReturnedSnippet(Result(Snippet, rsvp.Error))
+  UserClickedSnippet(id: Int)
   UserCreateSnippet(title: String, content: String)
 }
 
@@ -93,35 +67,45 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
       let snippet = CreateSnippet(title:, content:)
       #(Model(..model, saving: True), save_snippet(snippet))
     }
-
-    ServerSavedSnippet(_) -> #(
-      Model(..model, error: option.Some("failed to save snippet")),
-      effect.none(),
-    )
-    UserClickedSnippet -> {
-      let snippet =
-        document.query_selector("#model")
-        |> result.map(plinth_element.inner_text)
-        |> result.try(fn(json) {
-          json.parse(json, shared.snippet_decoder())
-          |> result.replace_error(Nil)
-        })
-      case snippet {
-        Ok(snippet) -> #(
-          Model(
-            ..model,
-            current_snippet: option.Some(snippet),
-            current_route: todo,
-          ),
-          effect.none(),
-        )
+    ApiReturnedSnippetList(res) ->
+      case res {
+        Ok(snippets) -> #(Model(..model, snippets: snippets), effect.none())
         Error(_) -> #(
-          Model(..model, current_route: todo, current_snippet: None),
+          Model(..model, error: Some("failed to get snippets")),
           effect.none(),
         )
       }
+    ApiReturnedSnippet(res) ->
+      case res {
+        Ok(snippet) -> #(
+          Model(..model, current_snippet: Some(snippet)),
+          effect.none(),
+        )
+        Error(err) -> {
+          echo err
+          #(Model(..model, error: Some("failed to get snippet")), effect.none())
+        }
+      }
+    ServerSavedSnippet(_) -> #(
+      Model(..model, error: Some("failed to save snippet")),
+      effect.none(),
+    )
+    UserClickedSnippet(id) -> {
+      let snippet = fetch_snippet(id)
+      #(
+        Model(..model, current_route: ShowSnippet(id), current_snippet: None),
+        snippet,
+      )
     }
   }
+}
+
+fn fetch_snippet(id) {
+  let url = "/api/snippets/" <> int.to_string(id)
+  let handler =
+    rsvp.expect_json(shared.snippet_item_decoder(), ApiReturnedSnippet)
+
+  rsvp.get(url, handler)
 }
 
 pub type CreateSnippet {
@@ -153,13 +137,19 @@ fn view(model: Model) -> Element(Msg) {
         view_snippet_list(model.snippets),
       ])
     ShowSnippet(id) ->
-      html.div([], [
-        html.h1([attribute.class("text-blue-500 text-2xl")], [
-          html.text("Snippet"),
-        ]),
-        html.p([], [html.text(int.to_string(id))]),
-        // view_snippet_list(model.snippets),
-      ])
+      case model.current_snippet {
+        Some(snippet) ->
+          html.div([], [
+            html.h1([attribute.class("text-blue-500 text-2xl")], [
+              html.text("Snippet"),
+            ]),
+            html.p([], [html.text(int.to_string(id))]),
+            html.p([], [html.text(snippet.title)]),
+            // view_snippet_list(model.snippets),
+          ])
+        None -> html.p([], [html.text("not found")])
+      }
+
     NotFound -> element.none()
   }
 }
@@ -175,6 +165,10 @@ fn view_snippet_list(snippets: List(Snippet)) {
             html.a(
               [
                 attribute.class("hover:text-red-500"),
+                // event.on_click(UserClickedSnippet(item.id)),
+                event.prevent_default(
+                  event.on_click(UserClickedSnippet(item.id)),
+                ),
                 attribute.href("/snippets/" <> int.to_string(item.id)),
               ],
               [
