@@ -1,15 +1,14 @@
-import client/route.{type Route, Home, NotFound, ShowSnippet}
-import gleam/http/response.{type Response}
+import client/component/navbar
+import client/page/home
+import client/page/login
+import client/page/show
+import client/page_model.{type PageModel}
+import client/route.{type Route, Home, Login, NotFound, ShowSnippet}
 import gleam/int
-import gleam/json
-import gleam/list
 import gleam/option.{type Option, None, Some}
 import lustre
-import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
-import lustre/element/html
-import lustre/event
 import rsvp
 import shared.{type Snippet}
 
@@ -34,6 +33,8 @@ type Model {
     current_snippet: Option(Snippet),
     current_route: Route,
     saving: Bool,
+    page_model: PageModel,
+    logged_in: Bool,
     error: Option(String),
   )
 }
@@ -45,6 +46,8 @@ fn init(snippets) {
       current_snippet: None,
       current_route: Home,
       saving: False,
+      logged_in: False,
+      page_model: page_model.init(Home),
       error: None,
     )
 
@@ -54,19 +57,70 @@ fn init(snippets) {
 }
 
 type Msg {
-  ServerSavedSnippet(Result(Response(String), rsvp.Error))
+  // component
+  NavbarMsg(navbar.Msg)
+
+  // page
+  HomeMsg(home.Msg)
+  ShowSnippetMsg(show.Msg)
+  LoginMsg(login.Msg)
+
+  // api
   ApiReturnedSnippetList(Result(List(Snippet), rsvp.Error))
   ApiReturnedSnippet(Result(Snippet, rsvp.Error))
-  UserClickedSnippet(id: Int)
-  UserCreateSnippet(title: String, content: String)
 }
 
 fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    UserCreateSnippet(title:, content:) -> {
-      let snippet = CreateSnippet(title:, content:)
-      #(Model(..model, saving: True), save_snippet(snippet))
-    }
+    NavbarMsg(msg) ->
+      case msg {
+        navbar.UserClickedHome -> #(
+          Model(..model, current_route: Home),
+          effect.none(),
+        )
+        navbar.UserClickedLogin -> #(
+          Model(..model, current_route: Login),
+          effect.none(),
+        )
+      }
+    HomeMsg(msg) ->
+      case msg {
+        home.UserClickedSnippet(id) -> {
+          let snippet = fetch_snippet(id)
+          #(Model(..model, current_route: ShowSnippet(id)), snippet)
+        }
+      }
+    ShowSnippetMsg(_) -> #(model, effect.none())
+    LoginMsg(msg) ->
+      case msg {
+        login.UserSubmittedLoginForm(result) ->
+          case result {
+            Ok(login) -> {
+              let effect = login.do_login(login.email, login.password)
+              #(
+                Model(..model, current_route: Home, logged_in: True),
+                effect |> effect.map(LoginMsg),
+              )
+            }
+            Error(form) -> #(
+              Model(
+                ..model,
+                page_model: page_model.Login(login.FormPage(form)),
+                current_route: Login,
+              ),
+              effect.none(),
+            )
+          }
+        login.ApiReturnedToken(res) -> {
+          case res {
+            Ok(_) -> #(model, effect.none())
+            Error(_) -> #(
+              Model(..model, current_route: Login, logged_in: False),
+              effect.none(),
+            )
+          }
+        }
+      }
     ApiReturnedSnippetList(res) ->
       case res {
         Ok(snippets) -> #(Model(..model, snippets: snippets), effect.none())
@@ -86,17 +140,6 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
           #(Model(..model, error: Some("failed to get snippet")), effect.none())
         }
       }
-    ServerSavedSnippet(_) -> #(
-      Model(..model, error: Some("failed to save snippet")),
-      effect.none(),
-    )
-    UserClickedSnippet(id) -> {
-      let snippet = fetch_snippet(id)
-      #(
-        Model(..model, current_route: ShowSnippet(id), current_snippet: None),
-        snippet,
-      )
-    }
   }
 }
 
@@ -108,76 +151,39 @@ fn fetch_snippet(id) {
   rsvp.get(url, handler)
 }
 
-pub type CreateSnippet {
-  CreateSnippet(title: String, content: String)
-}
-
-fn create_snippet_to_json(create_snippet: CreateSnippet) -> json.Json {
-  let CreateSnippet(title:, content:) = create_snippet
-  json.object([
-    #("title", json.string(title)),
-    #("content", json.string(content)),
+fn view_page(model: Model, view: Element(a), msg: fn(a) -> Msg) {
+  element.fragment([
+    navbar.navbar(model.logged_in) |> element.map(NavbarMsg),
+    view |> element.map(msg),
   ])
-}
-
-fn save_snippet(snippet) -> Effect(Msg) {
-  let body = create_snippet_to_json(snippet)
-  let url = "/api/snippets"
-
-  rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedSnippet))
 }
 
 fn view(model: Model) -> Element(Msg) {
   case model.current_route {
     Home ->
-      html.div([], [
-        html.h1([attribute.class("text-blue-500 text-2xl")], [
-          html.text("Snippet List"),
-        ]),
-        view_snippet_list(model.snippets),
-      ])
-    ShowSnippet(id) ->
-      case model.current_snippet {
-        Some(snippet) ->
-          html.div([], [
-            html.h1([attribute.class("text-blue-500 text-2xl")], [
-              html.text("Snippet"),
-            ]),
-            html.p([], [html.text(int.to_string(id))]),
-            html.p([], [html.text(snippet.title)]),
-            // view_snippet_list(model.snippets),
-          ])
-        None -> html.p([], [html.text("not found")])
-      }
-
-    NotFound -> element.none()
-  }
-}
-
-fn view_snippet_list(snippets: List(Snippet)) {
-  case snippets {
-    [] -> html.p([], [html.text("No snippet found.")])
-    _ -> {
-      html.ul(
-        [],
-        list.index_map(snippets, fn(item, _index) {
-          html.li([], [
-            html.a(
-              [
-                attribute.class("hover:text-red-500"),
-                // event.on_click(UserClickedSnippet(item.id)),
-                event.prevent_default(
-                  event.on_click(UserClickedSnippet(item.id)),
-                ),
-                attribute.href("/snippets/" <> int.to_string(item.id)),
-              ],
-              [
-                html.text(item.title),
-              ],
-            ),
-          ])
-        }),
+      view_page(
+        model,
+        home.view(home.Model(
+          snippets: model.snippets,
+          logged_in: model.logged_in,
+        )),
+        HomeMsg,
       )
-    }
+    ShowSnippet(_id) ->
+      view_page(
+        model,
+        show.view(show.Model(
+          snippet: model.current_snippet,
+          logged_in: model.logged_in,
+        )),
+        ShowSnippetMsg,
+      )
+    Login ->
+      view_page(
+        model,
+        login.view(login.FormPage(form: login.login_form())),
+        LoginMsg,
+      )
+    NotFound -> element.none()
   }
 }

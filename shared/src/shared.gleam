@@ -1,6 +1,8 @@
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/option
+import gleam/time/timestamp
 
 pub type Snippet {
   Snippet(
@@ -149,4 +151,21 @@ pub fn role_decoder() -> decode.Decoder(Role) {
   use description <- decode.field("description", decode.optional(decode.string))
   use created_at <- decode.field("created_at", decode.int)
   decode.success(Role(id:, name:, level:, description:, created_at:))
+}
+
+pub fn current_time() -> Int {
+  let #(now, _) =
+    timestamp.system_time() |> timestamp.to_unix_seconds_and_nanoseconds()
+  now
+}
+
+pub fn time_until(unix_timestamp) {
+  let diff = unix_timestamp - current_time()
+
+  case diff {
+    _ if diff > 86_400 -> int.to_string(diff / 86_400) <> " days"
+    _ if diff > 3600 -> int.to_string(diff / 3600) <> " hours"
+    _ if diff > 60 -> int.to_string(diff / 60) <> " minutes"
+    _ -> "expired"
+  }
 }

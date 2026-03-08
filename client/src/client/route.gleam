@@ -6,6 +6,7 @@ import plinth/browser/window
 pub type Route {
   Home
   ShowSnippet(snippet_id: Int)
+  Login
   NotFound
 }
 
