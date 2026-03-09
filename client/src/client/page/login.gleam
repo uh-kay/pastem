@@ -20,7 +20,7 @@ pub type Model {
 
 pub type Msg {
   UserSubmittedLoginForm(result: Result(LoginForm, Form(LoginForm)))
-  ApiReturnedToken(Result(Token, Error))
+  ServerReturnedToken(Result(Token, Error))
 }
 
 pub type LoginFlow
@@ -36,14 +36,14 @@ pub fn login_form() {
 pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
   case msg {
     UserSubmittedLoginForm(result: Ok(login)) -> {
-      let effect = do_login(login.email, login.password)
+      let effect = do_login(login)
       #(model, effect)
     }
     UserSubmittedLoginForm(result: Error(form)) -> #(
       FormPage(form),
       effect.none(),
     )
-    ApiReturnedToken(_) -> #(model, effect.none())
+    ServerReturnedToken(_) -> #(model, effect.none())
   }
 }
 
@@ -56,13 +56,13 @@ fn token_decoder() -> decode.Decoder(Token) {
   decode.success(Token(token:))
 }
 
-pub fn do_login(email, password) {
+pub fn do_login(login_form: LoginForm) {
   let url = "/api/tokens"
-  let handler = rsvp.expect_json(token_decoder(), ApiReturnedToken)
+  let handler = rsvp.expect_json(token_decoder(), ServerReturnedToken)
   let body =
     json.object([
-      #("email", json.string(email)),
-      #("password", json.string(password)),
+      #("email", json.string(login_form.email)),
+      #("password", json.string(login_form.password)),
     ])
   rsvp.post(url, body, handler)
 }

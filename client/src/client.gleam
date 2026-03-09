@@ -1,9 +1,12 @@
 import client/component/navbar
+import client/page/create
 import client/page/home
 import client/page/login
 import client/page/show
 import client/page_model.{type PageModel}
-import client/route.{type Route, Home, Login, NotFound, ShowSnippet}
+import client/route.{
+  type Route, CreateSnippet, Home, Login, NotFound, ShowSnippet,
+}
 import gleam/http/response.{type Response}
 import gleam/int
 import gleam/option.{type Option, None, Some}
@@ -23,7 +26,7 @@ pub fn main() -> Nil {
 fn fetch_snippets() {
   let url = "/api/snippets"
   let handler =
-    rsvp.expect_json(shared.snippet_list_decoder(), ApiReturnedSnippetList)
+    rsvp.expect_json(shared.snippet_list_decoder(), ServerReturnedSnippetList)
 
   rsvp.get(url, handler)
 }
@@ -33,7 +36,6 @@ type Model {
     snippets: List(Snippet),
     current_snippet: Option(Snippet),
     current_route: Route,
-    saving: Bool,
     page_model: PageModel,
     logged_in: Bool,
     error: Option(String),
@@ -46,7 +48,6 @@ fn init(snippets) {
       snippets: snippets,
       current_snippet: None,
       current_route: Home,
-      saving: False,
       logged_in: False,
       page_model: page_model.init(Home),
       error: None,
@@ -59,7 +60,7 @@ fn init(snippets) {
 
 fn fetch_user() {
   let url = "/api/users/me"
-  let handler = rsvp.expect_ok_response(ApiReturnedUser)
+  let handler = rsvp.expect_ok_response(ServerReturnedUser)
 
   rsvp.get(url, handler)
 }
@@ -70,13 +71,14 @@ type Msg {
 
   // page
   HomeMsg(home.Msg)
+  CreateSnippetMsg(create.Msg)
   ShowSnippetMsg(show.Msg)
   LoginMsg(login.Msg)
 
   // api
-  ApiReturnedUser(Result(Response(String), Error))
-  ApiReturnedSnippetList(Result(List(Snippet), Error))
-  ApiReturnedSnippet(Result(Snippet, Error))
+  ServerReturnedUser(Result(Response(String), Error))
+  ServerReturnedSnippetList(Result(List(Snippet), Error))
+  ServerReturnedSnippet(Result(Snippet, Error))
 }
 
 fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -91,6 +93,12 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
           Model(..model, current_route: Login),
           effect.none(),
         )
+        navbar.UserClickedRegister -> todo
+        navbar.UserClickedCreateSnippet -> #(
+          Model(..model, current_route: CreateSnippet),
+          effect.none(),
+        )
+        navbar.UserClickedLogout -> todo
       }
     HomeMsg(msg) ->
       case msg {
@@ -99,13 +107,35 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
           #(Model(..model, current_route: ShowSnippet(id)), snippet)
         }
       }
+    CreateSnippetMsg(msg) ->
+      case msg {
+        create.UserSubmittedCreateForm(result) -> {
+          case result {
+            Ok(create_snippet) -> {
+              let effect = create.save_snippet(create_snippet)
+              #(
+                Model(..model, current_route: Home),
+                effect |> effect.map(CreateSnippetMsg),
+              )
+            }
+            Error(form) -> #(
+              Model(
+                ..model,
+                page_model: page_model.CreateSnippet(create.FormPage(form)),
+              ),
+              effect.none(),
+            )
+          }
+        }
+        create.ServerSavedSnippet(_) -> #(model, fetch_snippets())
+      }
     ShowSnippetMsg(_) -> #(model, effect.none())
     LoginMsg(msg) ->
       case msg {
         login.UserSubmittedLoginForm(result) ->
           case result {
             Ok(login) -> {
-              let effect = login.do_login(login.email, login.password)
+              let effect = login.do_login(login)
               #(
                 Model(..model, current_route: Home, logged_in: True),
                 effect |> effect.map(LoginMsg),
@@ -120,7 +150,7 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
               effect.none(),
             )
           }
-        login.ApiReturnedToken(res) -> {
+        login.ServerReturnedToken(res) ->
           case res {
             Ok(_) -> #(model, effect.none())
             Error(_) -> #(
@@ -128,14 +158,13 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
               effect.none(),
             )
           }
-        }
       }
-    ApiReturnedUser(res) ->
+    ServerReturnedUser(res) ->
       case res {
         Ok(_) -> #(Model(..model, logged_in: True), effect.none())
         Error(_) -> #(Model(..model, logged_in: False), effect.none())
       }
-    ApiReturnedSnippetList(res) ->
+    ServerReturnedSnippetList(res) ->
       case res {
         Ok(snippets) -> #(Model(..model, snippets: snippets), effect.none())
         Error(_) -> #(
@@ -143,7 +172,7 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
           effect.none(),
         )
       }
-    ApiReturnedSnippet(res) ->
+    ServerReturnedSnippet(res) ->
       case res {
         Ok(snippet) -> #(
           Model(..model, current_snippet: Some(snippet)),
@@ -160,7 +189,7 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
 fn fetch_snippet(id) {
   let url = "/api/snippets/" <> int.to_string(id)
   let handler =
-    rsvp.expect_json(shared.snippet_item_decoder(), ApiReturnedSnippet)
+    rsvp.expect_json(shared.snippet_item_decoder(), ServerReturnedSnippet)
 
   rsvp.get(url, handler)
 }
@@ -183,6 +212,12 @@ fn view(model: Model) -> Element(Msg) {
         )),
         HomeMsg,
       )
+    CreateSnippet ->
+      view_page(
+        model,
+        create.view(create.FormPage(form: create.create_snippet_form())),
+        CreateSnippetMsg,
+      )
     ShowSnippet(_id) ->
       view_page(
         model,
@@ -198,6 +233,8 @@ fn view(model: Model) -> Element(Msg) {
         login.view(login.FormPage(form: login.login_form())),
         LoginMsg,
       )
+    route.Register -> todo
+    route.Logout -> todo
     NotFound -> element.none()
   }
 }

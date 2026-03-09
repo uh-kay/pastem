@@ -1,10 +1,14 @@
 import lustre/attribute
+import lustre/effect
 import lustre/element/html
 import lustre/event
 
 pub type Msg {
   UserClickedHome
   UserClickedLogin
+  UserClickedRegister
+  UserClickedCreateSnippet
+  UserClickedLogout
 }
 
 pub fn navbar(logged_in: Bool) {
@@ -32,6 +36,7 @@ pub fn navbar(logged_in: Bool) {
         True -> [
           html.a(
             [
+              event.prevent_default(event.on_click(UserClickedLogout)),
               attribute.href("/logout"),
               attribute.class(
                 "text-md font-medium text-gray-600 dark:text-gray-400
@@ -42,6 +47,7 @@ pub fn navbar(logged_in: Bool) {
           ),
           html.a(
             [
+              event.prevent_default(event.on_click(UserClickedCreateSnippet)),
               attribute.href("/snippets/create"),
               attribute.class(
                 "px-4 py-2 text-md font-medium text-white bg-green-600
@@ -55,6 +61,7 @@ pub fn navbar(logged_in: Bool) {
         False -> [
           html.a(
             [
+              event.prevent_default(event.on_click(UserClickedRegister)),
               attribute.href("/register"),
               attribute.class(
                 "text-md font-medium text-gray-600 dark:text-gray-400

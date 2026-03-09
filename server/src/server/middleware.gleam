@@ -56,8 +56,30 @@ pub fn require_auth(
       }
     }
     _ -> {
-      wisp.log_warning("missing auth token")
-      wisp.response(401)
+      let cookie =
+        wisp.get_cookie(req, "auth_token", wisp.Signed)
+        |> result.replace_error(error.Unauthorized)
+
+      case cookie {
+        Ok(token_str) -> {
+          let token = crypto.hash(Sha256, <<token_str:utf8>>)
+          case user.get_user_by_token(ctx, token) {
+            Ok(user) -> {
+              let new_ctx = Context(..ctx, user: Some(user))
+              next(req, new_ctx)
+            }
+            Error(err) -> {
+              case err {
+                NotFound(_) -> wisp.response(401)
+                _ -> error.handle_error(req, err)
+              }
+            }
+          }
+        }
+        Error(err) -> error.handle_error(req, err)
+      }
+      // wisp.log_warning("missing auth token")
+      // wisp.response(401)
     }
   }
 }

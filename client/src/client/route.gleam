@@ -5,8 +5,11 @@ import plinth/browser/window
 
 pub type Route {
   Home
+  CreateSnippet
   ShowSnippet(snippet_id: Int)
   Login
+  Register
+  Logout
   NotFound
 }
 
