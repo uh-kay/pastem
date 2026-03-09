@@ -2,6 +2,7 @@ import gleam/http.{Delete, Get, Patch, Post}
 import server/api_route/auth
 import server/api_route/health
 import server/api_route/snippet
+import server/api_route/user
 import server/context.{type Context}
 import server/middleware
 import server/page/home
@@ -59,6 +60,8 @@ fn api_routes(ctx: Context, req: Request, segments: List(String)) -> Response {
     Get, ["health"] -> health.health()
     Post, ["register"] -> auth.register(ctx, req)
     Post, ["tokens"] -> auth.tokens(ctx, req)
+
+    Get, ["users", "me"] -> user.get_user(ctx, req)
 
     Get, ["snippets"] -> snippet.list_snippets(ctx, req)
     Post, ["snippets"] -> {

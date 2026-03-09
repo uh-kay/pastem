@@ -4,12 +4,13 @@ import client/page/login
 import client/page/show
 import client/page_model.{type PageModel}
 import client/route.{type Route, Home, Login, NotFound, ShowSnippet}
+import gleam/http/response.{type Response}
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import lustre
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
-import rsvp
+import rsvp.{type Error}
 import shared.{type Snippet}
 
 pub fn main() -> Nil {
@@ -51,9 +52,16 @@ fn init(snippets) {
       error: None,
     )
 
-  let initial_items = fetch_snippets()
+  let initial_effects = effect.batch([fetch_user(), fetch_snippets()])
 
-  #(model, initial_items)
+  #(model, initial_effects)
+}
+
+fn fetch_user() {
+  let url = "/api/users/me"
+  let handler = rsvp.expect_ok_response(ApiReturnedUser)
+
+  rsvp.get(url, handler)
 }
 
 type Msg {
@@ -66,8 +74,9 @@ type Msg {
   LoginMsg(login.Msg)
 
   // api
-  ApiReturnedSnippetList(Result(List(Snippet), rsvp.Error))
-  ApiReturnedSnippet(Result(Snippet, rsvp.Error))
+  ApiReturnedUser(Result(Response(String), Error))
+  ApiReturnedSnippetList(Result(List(Snippet), Error))
+  ApiReturnedSnippet(Result(Snippet, Error))
 }
 
 fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -120,6 +129,11 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
             )
           }
         }
+      }
+    ApiReturnedUser(res) ->
+      case res {
+        Ok(_) -> #(Model(..model, logged_in: True), effect.none())
+        Error(_) -> #(Model(..model, logged_in: False), effect.none())
       }
     ApiReturnedSnippetList(res) ->
       case res {

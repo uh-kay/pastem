@@ -124,7 +124,7 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
 
   case result {
     Ok(token) ->
-      helper.json_response(["message"], [json.string("token created")], 201)
+      helper.json_response(["token"], [json.string(token)], 201)
       |> wisp.set_cookie(
         req,
         "auth_token",

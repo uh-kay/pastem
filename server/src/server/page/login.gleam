@@ -92,15 +92,15 @@ pub fn login_submit(req) {
   }
 
   case result {
-    Ok(_token) -> wisp.redirect("/")
-
-    // |> wisp.set_cookie(
-    //   req,
-    //   "auth_token",
-    //   token.token,
-    //   wisp.Signed,
-    //   365 * 24 * 60 * 60,
-    // )
+    Ok(token) ->
+      wisp.redirect("/")
+      |> wisp.set_cookie(
+        req,
+        "auth_token",
+        token.token,
+        wisp.Signed,
+        365 * 24 * 60 * 60,
+      )
     Error(CouldNotParseForm(form)) ->
       helper.html_response(req, "Login", login_view(form), 422)
     Error(_) -> helper.html_error_response(500)
