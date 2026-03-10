@@ -166,10 +166,21 @@ pub fn delete_token(ctx, req) {
   }
 
   case result {
-    Ok(_) -> {
-      let res = wisp.redirect("/")
-      wisp.set_cookie(res, req, "auth_token", "", wisp.Signed, 0)
-    }
+    Ok(_) ->
+      wisp.redirect("/")
+      |> wisp.set_cookie(req, "auth_token", "", wisp.Signed, 0)
+      |> response.set_cookie(
+        "logged_in",
+        "",
+        cookie.Attributes(
+          max_age: Some(0),
+          domain: None,
+          path: Some("/"),
+          secure: False,
+          http_only: False,
+          same_site: Some(cookie.Lax),
+        ),
+      )
     Error(err) -> error.handle_error(req, err)
   }
 }

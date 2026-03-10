@@ -2,6 +2,7 @@ import client/component/navbar
 import client/page/create
 import client/page/home
 import client/page/login
+import client/page/register
 import client/page/show
 import client/page_model.{type PageModel}
 import client/route.{
@@ -76,6 +77,7 @@ type Msg {
   CreateSnippetMsg(create.Msg)
   ShowSnippetMsg(show.Msg)
   LoginMsg(login.Msg)
+  RegisterMsg(register.Msg)
 
   // api
   ServerLoggedOutUser(Result(Response(String), Error))
@@ -168,6 +170,28 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
             )
           }
       }
+    RegisterMsg(msg) ->
+      case msg {
+        register.UserSubmittedRegisterForm(result:) ->
+          case result {
+            Ok(form) -> {
+              let effect = register.register(form)
+              #(model, effect |> effect.map(RegisterMsg))
+            }
+            Error(form) -> #(
+              Model(
+                ..model,
+                current_route: Register,
+                page_model: page_model.Register(register.FormPage(form)),
+              ),
+              effect.none(),
+            )
+          }
+        register.ServerReturnedMessage(_) -> #(
+          Model(..model, current_route: Home),
+          effect.none(),
+        )
+      }
     ServerLoggedOutUser(res) -> {
       case res {
         Ok(_) -> #(Model(..model, logged_in: False), logout())
@@ -256,7 +280,12 @@ fn view(model: Model) -> Element(Msg) {
         login.view(login.FormPage(form: login.login_form())),
         LoginMsg,
       )
-    Register -> todo
+    Register ->
+      view_page(
+        model,
+        register.view(register.FormPage(form: register.register_form())),
+        RegisterMsg,
+      )
     Logout -> element.none()
     NotFound -> element.none()
   }
