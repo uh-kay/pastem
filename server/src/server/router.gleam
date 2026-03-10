@@ -59,9 +59,10 @@ fn api_routes(ctx: Context, req: Request, segments: List(String)) -> Response {
   case req.method, segments {
     Get, ["health"] -> health.health()
     Post, ["register"] -> auth.register(ctx, req)
-    Post, ["tokens"] -> auth.tokens(ctx, req)
+    Post, ["tokens"] -> auth.create_token(ctx, req)
+    Delete, ["tokens"] -> auth.delete_token(ctx, req)
 
-    Get, ["users", "me"] -> user.get_user(ctx, req)
+    Get, ["users", "me"] -> user.get_current_user(ctx, req)
 
     Get, ["snippets"] -> snippet.list_snippets(ctx, req)
     Post, ["snippets"] -> {

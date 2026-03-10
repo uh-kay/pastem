@@ -2,7 +2,7 @@ import gleam/bit_array
 import gleam/crypto
 import gleam/time/duration
 import gleam/time/timestamp
-import server/context
+import server/context.{type Context}
 import server/db
 import server/error
 import server/sql
@@ -33,7 +33,7 @@ pub fn generate_token(user_id: Int, ttl: duration.Duration, scope: String) {
 }
 
 pub fn create_new_token(
-  ctx: context.Context,
+  ctx: Context,
   user_id: Int,
   ttl: duration.Duration,
   scope: String,
@@ -45,6 +45,13 @@ pub fn create_new_token(
     |> db.exec(ctx.db, _)
   {
     Ok(_) -> Ok(token)
+    Error(err) -> Error(error.DatabaseError(err))
+  }
+}
+
+pub fn delete_token(ctx: Context, scope: String, user_id: Int) {
+  case sql.delete_token(scope, user_id) |> db.exec(ctx.db, _) {
+    Ok(_) -> Ok(Nil)
     Error(err) -> Error(error.DatabaseError(err))
   }
 }

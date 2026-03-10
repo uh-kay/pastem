@@ -1,10 +1,14 @@
+import gleam/crypto.{Sha256}
 import gleam/dynamic/decode
 import gleam/http
+import gleam/http/cookie
+import gleam/http/response
 import gleam/json
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/time/duration
 import server/context
-import server/error
+import server/error.{Unauthorized}
 import server/helper
 import server/model/token
 import server/model/user
@@ -94,7 +98,7 @@ pub fn create_token_decoder() -> decode.Decoder(CreateToken) {
   decode.success(CreateToken(email:, password:))
 }
 
-fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
+pub fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
   use json <- wisp.require_json(req)
 
   let result = {
@@ -132,6 +136,40 @@ fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
         wisp.Signed,
         365 * 24 * 60 * 60,
       )
+      |> response.set_cookie(
+        "logged_in",
+        "true",
+        cookie.Attributes(
+          max_age: Some(365 * 24 * 60 * 60),
+          domain: None,
+          path: Some("/"),
+          secure: False,
+          http_only: False,
+          same_site: Some(cookie.Lax),
+        ),
+      )
+    Error(err) -> error.handle_error(req, err)
+  }
+}
+
+pub fn delete_token(ctx, req) {
+  let result = {
+    use cookie <- result.try(
+      wisp.get_cookie(req, "auth_token", wisp.Signed)
+      |> result.replace_error(Unauthorized),
+    )
+
+    let token = crypto.hash(Sha256, <<cookie:utf8>>)
+    use user <- result.try(user.get_user_by_token(ctx, token))
+
+    token.delete_token(ctx, token.scope_authentication, user.id)
+  }
+
+  case result {
+    Ok(_) -> {
+      let res = wisp.redirect("/")
+      wisp.set_cookie(res, req, "auth_token", "", wisp.Signed, 0)
+    }
     Error(err) -> error.handle_error(req, err)
   }
 }
