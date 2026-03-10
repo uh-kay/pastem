@@ -5,10 +5,12 @@ import client/page/login
 import client/page/show
 import client/page_model.{type PageModel}
 import client/route.{
-  type Route, CreateSnippet, Home, Login, NotFound, ShowSnippet,
+  type Route, CreateSnippet, Home, Login, Logout, NotFound, Register,
+  ShowSnippet,
 }
 import gleam/http/response.{type Response}
 import gleam/int
+import gleam/json
 import gleam/option.{type Option, None, Some}
 import lustre
 import lustre/effect.{type Effect}
@@ -48,22 +50,22 @@ fn init(snippets) {
       snippets: snippets,
       current_snippet: None,
       current_route: Home,
-      logged_in: False,
+      logged_in: check_login(),
       page_model: page_model.init(Home),
       error: None,
     )
 
-  let initial_effects = effect.batch([fetch_user(), fetch_snippets()])
+  let initial_effects = effect.batch([fetch_snippets()])
 
   #(model, initial_effects)
 }
 
-fn fetch_user() {
-  let url = "/api/users/me"
-  let handler = rsvp.expect_ok_response(ServerReturnedUser)
+// fn fetch_user() {
+//   let url = "/api/users/me"
+//   let handler = rsvp.expect_ok_response(ServerReturnedUser)
 
-  rsvp.get(url, handler)
-}
+//   rsvp.get(url, handler)
+// }
 
 type Msg {
   // component
@@ -76,6 +78,7 @@ type Msg {
   LoginMsg(login.Msg)
 
   // api
+  ServerLoggedOutUser(Result(Response(String), Error))
   ServerReturnedUser(Result(Response(String), Error))
   ServerReturnedSnippetList(Result(List(Snippet), Error))
   ServerReturnedSnippet(Result(Snippet, Error))
@@ -93,12 +96,18 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
           Model(..model, current_route: Login),
           effect.none(),
         )
-        navbar.UserClickedRegister -> todo
+        navbar.UserClickedRegister -> #(
+          Model(..model, current_route: Register),
+          effect.none(),
+        )
         navbar.UserClickedCreateSnippet -> #(
           Model(..model, current_route: CreateSnippet),
           effect.none(),
         )
-        navbar.UserClickedLogout -> todo
+        navbar.UserClickedLogout -> #(
+          Model(..model, current_route: Home),
+          logout(),
+        )
       }
     HomeMsg(msg) ->
       case msg {
@@ -159,6 +168,12 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
             )
           }
       }
+    ServerLoggedOutUser(res) -> {
+      case res {
+        Ok(_) -> #(Model(..model, logged_in: False), logout())
+        Error(_) -> #(model, effect.none())
+      }
+    }
     ServerReturnedUser(res) ->
       case res {
         Ok(_) -> #(Model(..model, logged_in: True), effect.none())
@@ -184,6 +199,14 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
         }
       }
   }
+}
+
+fn logout() {
+  let url = "/api/tokens"
+  let handler = rsvp.expect_ok_response(ServerLoggedOutUser)
+  let json = json.null()
+
+  rsvp.delete(url, json, handler)
 }
 
 fn fetch_snippet(id) {
@@ -233,8 +256,11 @@ fn view(model: Model) -> Element(Msg) {
         login.view(login.FormPage(form: login.login_form())),
         LoginMsg,
       )
-    route.Register -> todo
-    route.Logout -> todo
+    Register -> todo
+    Logout -> element.none()
     NotFound -> element.none()
   }
 }
+
+@external(javascript, "./client.ffi.mjs", "check_login")
+pub fn check_login() -> Bool

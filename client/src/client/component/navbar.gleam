@@ -1,5 +1,4 @@
 import lustre/attribute
-import lustre/effect
 import lustre/element/html
 import lustre/event
 
