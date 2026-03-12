@@ -4,6 +4,7 @@ import server/api_route/health
 import server/api_route/snippet
 import server/api_route/user
 import server/context.{type Context}
+import server/helper
 import server/middleware
 import server/page/home
 import server/page/login
@@ -22,8 +23,32 @@ pub fn handle_request(
     _, ["v1", ..rest] -> api_routes(ctx, req, rest)
 
     _, rest -> web_routes(req, rest)
+    // Get, _ -> serve_index()
+    // _, _ -> helper.html_error_response(404)
   }
 }
+
+// fn serve_index() -> Response {
+//   let html =
+//     html.html([], [
+//       html.head([], [
+//         html.title([], "Pastem"),
+//         html.link([
+//           attribute.rel("stylesheet"),
+//           attribute.href("/static/client.css"),
+//         ]),
+//         html.script(
+//           [attribute.type_("module"), attribute.src("/static/client.js")],
+//           "",
+//         ),
+//       ]),
+//       html.body([], [html.div([attribute.id("app")], [])]),
+//     ])
+
+//   html
+//   |> element.to_document_string
+//   |> wisp.html_response(200)
+// }
 
 fn web_routes(req: Request, segments) {
   let req = middleware.authenticate_web(req)
@@ -51,7 +76,7 @@ fn web_routes(req: Request, segments) {
     Get, ["snippets", id] -> snippet_page.show(req, id)
 
     Get, _ -> home.home_page(req)
-    _, _ -> wisp.not_found()
+    _, _ -> helper.html_error_response(404)
   }
 }
 

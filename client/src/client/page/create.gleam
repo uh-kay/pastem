@@ -52,7 +52,7 @@ pub fn create_snippet_form() {
 
 pub fn save_snippet(snippet) -> Effect(Msg) {
   let body = create_snippet_to_json(snippet)
-  let url = "/api/snippets"
+  let url = "/v1/snippets"
 
   rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedSnippet))
 }

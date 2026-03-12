@@ -11,6 +11,7 @@ import client/route.{
 }
 import gleam/http/response.{type Response}
 import gleam/int
+import gleam/javascript/promise
 import gleam/json
 import gleam/option.{type Option, None, Some}
 import lustre
@@ -27,7 +28,7 @@ pub fn main() -> Nil {
 }
 
 fn fetch_snippets() {
-  let url = "/api/snippets"
+  let url = "/v1/snippets"
   let handler =
     rsvp.expect_json(shared.snippet_list_decoder(), ServerReturnedSnippetList)
 
@@ -45,20 +46,30 @@ type Model {
   )
 }
 
-fn init(snippets) {
-  let model =
+fn init(snippets) -> #(Model, Effect(Msg)) {
+  let model = {
     Model(
       snippets: snippets,
       current_snippet: None,
       current_route: Home,
-      logged_in: check_login(),
+      logged_in: False,
       page_model: page_model.init(Home),
       error: None,
     )
+  }
 
-  let initial_effects = effect.batch([fetch_snippets()])
+  let initial_effects = effect.batch([fetch_snippets(), check_login_status()])
 
   #(model, initial_effects)
+}
+
+fn check_login_status() -> Effect(Msg) {
+  use dispatch <- effect.from
+  promise.tap(check_login(), fn(logged_in) {
+    dispatch(ClientReturnedLoginStatus(logged_in))
+  })
+
+  Nil
 }
 
 // fn fetch_user() {
@@ -84,6 +95,9 @@ type Msg {
   ServerReturnedUser(Result(Response(String), Error))
   ServerReturnedSnippetList(Result(List(Snippet), Error))
   ServerReturnedSnippet(Result(Snippet, Error))
+
+  // client
+  ClientReturnedLoginStatus(Bool)
 }
 
 fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -222,11 +236,15 @@ fn update(model, msg: Msg) -> #(Model, Effect(Msg)) {
           #(Model(..model, error: Some("failed to get snippet")), effect.none())
         }
       }
+    ClientReturnedLoginStatus(logged_in) -> #(
+      Model(..model, logged_in: logged_in),
+      effect.none(),
+    )
   }
 }
 
 fn logout() {
-  let url = "/api/tokens"
+  let url = "/v1/tokens"
   let handler = rsvp.expect_ok_response(ServerLoggedOutUser)
   let json = json.null()
 
@@ -234,7 +252,7 @@ fn logout() {
 }
 
 fn fetch_snippet(id) {
-  let url = "/api/snippets/" <> int.to_string(id)
+  let url = "/v1/snippets/" <> int.to_string(id)
   let handler =
     rsvp.expect_json(shared.snippet_item_decoder(), ServerReturnedSnippet)
 
@@ -292,4 +310,4 @@ fn view(model: Model) -> Element(Msg) {
 }
 
 @external(javascript, "./client.ffi.mjs", "check_login")
-pub fn check_login() -> Bool
+pub fn check_login() -> promise.Promise(Bool)

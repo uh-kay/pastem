@@ -57,7 +57,7 @@ fn token_decoder() -> decode.Decoder(Token) {
 }
 
 pub fn do_login(login_form: LoginForm) {
-  let url = "/api/tokens"
+  let url = "/v1/tokens"
   let handler = rsvp.expect_json(token_decoder(), ServerReturnedToken)
   let body =
     json.object([

@@ -32,7 +32,7 @@ pub fn register_form() {
 }
 
 pub fn register(form: RegisterForm) {
-  let url = "/api/register"
+  let url = "/v1/register"
   let handler = rsvp.expect_ok_response(ServerReturnedMessage)
   let body =
     json.object([

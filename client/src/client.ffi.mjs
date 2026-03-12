@@ -1,3 +1,3 @@
-export function check_login() {
-  return document.cookie.startsWith("logged_in=");
+export async function check_login() {
+  return !!(await cookieStore.get("logged_in"));
 }
