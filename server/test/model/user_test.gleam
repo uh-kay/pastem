@@ -1,7 +1,7 @@
 import birdie
 import gleam/string
 import server/model/user
-import validator/validator
+import server/validator/validator
 
 pub fn validate_username_ok_test() {
   let validator = validator.new() |> user.validate_username("foo")

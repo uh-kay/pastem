@@ -1,4 +1,3 @@
-import gleam/crypto.{Sha256}
 import gleam/http/request
 import gleam/int
 import gleam/option.{None, Some}
@@ -9,6 +8,12 @@ import server/model/role
 import server/model/snippet
 import server/model/user
 import wisp.{type Request, type Response}
+
+type MiddlewareError {
+  // UserError(user.UserError)
+  RoleError(role.RoleError)
+  UserNotFound
+}
 
 pub fn middleware(
   req: Request,
@@ -27,7 +32,7 @@ pub fn middleware(
 
 pub fn log_request(req: Request, handler: fn() -> Response) -> Response {
   let res = handler()
-  error.format_log(req, Some(res), "")
+  error.format_log_with_res(req, res, "")
   |> wisp.log_info
   res
 }
@@ -40,46 +45,24 @@ pub fn require_auth(
   let token = request.get_header(req, "Authorization")
 
   case token {
-    Ok("Bearer " <> t) -> {
-      let token = crypto.hash(Sha256, <<t:utf8>>)
+    Ok("Bearer " <> token) -> {
       case user.get_user_by_token(ctx, token) {
-        Ok(user) -> {
-          let new_ctx = Context(..ctx, user: Some(user))
-          next(req, new_ctx)
-        }
-        Error(err) -> {
-          case err {
-            NotFound(_) -> wisp.response(401)
-            _ -> error.handle_error(req, err)
-          }
-        }
+        Ok(user) -> next(req, Context(..ctx, user: Some(user)))
+        Error(err) -> user.handle_error(req, err)
       }
     }
     _ -> {
-      let cookie =
+      case
         wisp.get_cookie(req, "auth_token", wisp.Signed)
         |> result.replace_error(error.Unauthorized)
-
-      case cookie {
-        Ok(token_str) -> {
-          let token = crypto.hash(Sha256, <<token_str:utf8>>)
+      {
+        Ok(token) ->
           case user.get_user_by_token(ctx, token) {
-            Ok(user) -> {
-              let new_ctx = Context(..ctx, user: Some(user))
-              next(req, new_ctx)
-            }
-            Error(err) -> {
-              case err {
-                NotFound(_) -> wisp.response(401)
-                _ -> error.handle_error(req, err)
-              }
-            }
+            Ok(user) -> next(req, Context(..ctx, user: Some(user)))
+            Error(err) -> user.handle_error(req, err)
           }
-        }
         Error(err) -> error.handle_error(req, err)
       }
-      // wisp.log_warning("missing auth token")
-      // wisp.response(401)
     }
   }
 }
@@ -108,11 +91,8 @@ pub fn snippet_context_middleware(
   case result.replace_error(int.parse(id), error.BadRequest("invalid id")) {
     Ok(id) ->
       case snippet.get_snippet(ctx, id) {
-        Ok(snippet) -> {
-          let new_ctx = Context(..ctx, snippet: Some(snippet))
-          next(req, new_ctx)
-        }
-        Error(err) -> error.handle_error(req, err)
+        Ok(snippet) -> next(req, Context(..ctx, snippet: Some(snippet)))
+        Error(err) -> snippet.handle_error(req, err)
       }
     Error(err) -> error.handle_error(req, err)
   }
@@ -129,12 +109,17 @@ fn check_owner(ctx: Context) -> Result(Bool, AppError) {
   }
 }
 
-fn check_role_level(ctx: Context, role_name: String) -> Result(Bool, AppError) {
-  use role <- result.try(role.get_role(ctx, role_name))
+fn check_role_level(
+  ctx: Context,
+  role_name: String,
+) -> Result(Bool, MiddlewareError) {
+  use role <- result.try(
+    role.get_role(ctx, role_name) |> result.map_error(RoleError),
+  )
 
   case ctx.user {
     Some(user) -> Ok({ user.role_level >= role.level })
-    None -> Error(NotFound("user"))
+    None -> Error(UserNotFound)
   }
 }
 

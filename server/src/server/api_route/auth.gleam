@@ -1,4 +1,3 @@
-import gleam/crypto.{Sha256}
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/cookie
@@ -8,12 +7,20 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/time/duration
 import server/context
-import server/error.{Unauthorized}
+import server/error
 import server/helper
 import server/model/token
 import server/model/user
-import validator/validator
+import server/validator/validator
 import wisp
+
+type AuthError {
+  UserError(user.UserError)
+  TokenError(token.TokenError)
+  ValidationError(validator.ValidationError)
+  DecodeError(List(decode.DecodeError))
+  Unauthorized
+}
 
 pub type Register {
   Register(username: String, email: String, password: String)
@@ -48,9 +55,7 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
   let result = {
     use input <- result.try(
       decode.run(json, register_decoder())
-      |> result.replace_error(error.BadRequest(
-        "missing email, username, or password",
-      )),
+      |> result.map_error(DecodeError),
     )
 
     use _ <- result.try(
@@ -58,18 +63,22 @@ fn register_user(ctx: context.Context, req: wisp.Request) {
       |> user.validate_username(input.username)
       |> user.validate_email(input.email)
       |> user.validate_password(input.password)
-      |> validator.valid,
+      |> validator.valid
+      |> result.map_error(ValidationError),
     )
 
-    use password_bits <- result.try(user.hash_password(input.password))
+    use password_bits <- result.try(
+      user.hash_password(input.password) |> result.map_error(UserError),
+    )
 
     user.create_user(ctx, input.username, input.email, password_bits)
+    |> result.map_error(UserError)
   }
 
   case result {
     Ok(_) ->
       helper.json_response(["message"], [json.string("user created")], 201)
-    Error(err) -> error.handle_error(req, err)
+    Error(err) -> handle_error(req, err)
   }
 }
 
@@ -102,26 +111,32 @@ pub fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
   use json <- wisp.require_json(req)
 
   let result = {
-    use input <- result.try(case decode.run(json, create_token_decoder()) {
-      Ok(input) -> Ok(input)
-      Error(_) -> Error(error.BadRequest("failed to decode body"))
-    })
+    use input <- result.try(
+      decode.run(json, create_token_decoder()) |> result.map_error(DecodeError),
+    )
 
     use _ <- result.try(
       validator.new()
       |> user.validate_email(input.email)
       |> user.validate_password(input.password)
-      |> validator.valid,
+      |> validator.valid
+      |> result.map_error(ValidationError),
     )
 
-    use user <- result.try(user.verify_user(ctx, input.email, input.password))
+    use user <- result.try(
+      user.verify_user(ctx, input.email, input.password)
+      |> result.map_error(UserError),
+    )
 
-    use token <- result.try(token.create_new_token(
-      ctx,
-      user.id,
-      duration.hours(365 * 24),
-      token.scope_authentication,
-    ))
+    use token <- result.try(
+      token.create_new_token(
+        ctx,
+        user.id,
+        duration.hours(365 * 24),
+        token.scope_authentication,
+      )
+      |> result.map_error(TokenError),
+    )
 
     Ok(token.plaintext)
   }
@@ -148,21 +163,23 @@ pub fn create_token(ctx: context.Context, req: wisp.Request) -> wisp.Response {
           same_site: Some(cookie.Lax),
         ),
       )
-    Error(err) -> error.handle_error(req, err)
+    Error(err) -> handle_error(req, err)
   }
 }
 
-pub fn delete_token(ctx, req) {
+pub fn delete_token(ctx, req: wisp.Request) {
   let result = {
-    use cookie <- result.try(
+    use token <- result.try(
       wisp.get_cookie(req, "auth_token", wisp.Signed)
       |> result.replace_error(Unauthorized),
     )
 
-    let token = crypto.hash(Sha256, <<cookie:utf8>>)
-    use user <- result.try(user.get_user_by_token(ctx, token))
+    use user <- result.try(
+      user.get_user_by_token(ctx, token) |> result.map_error(UserError),
+    )
 
     token.delete_token(ctx, token.scope_authentication, user.id)
+    |> result.map_error(TokenError)
   }
 
   case result {
@@ -181,6 +198,22 @@ pub fn delete_token(ctx, req) {
           same_site: Some(cookie.Lax),
         ),
       )
-    Error(err) -> error.handle_error(req, err)
+    Error(err) -> handle_error(req, err)
+  }
+}
+
+fn handle_error(req: wisp.Request, err: AuthError) {
+  case err {
+    UserError(err) -> user.handle_error(req, err)
+    TokenError(err) -> token.handle_error(req, err)
+    ValidationError(err) -> validator.handle_error(req, err)
+    DecodeError(err) -> {
+      error.decode_error_to_string(err) |> wisp.log_warning()
+      helper.error_response("bad request", 400)
+    }
+    Unauthorized -> {
+      error.format_log(req, "unauthorized")
+      helper.unauthorized()
+    }
   }
 }

@@ -1,17 +1,20 @@
 import argus
 import gleam/dict
+import gleam/dynamic/decode
 import gleam/http
 import gleam/int
 import gleam/list
-import gleam/option.{None}
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import pog
 import server/helper
+
+// import server/model/user
 import wisp.{type Request, type Response}
 
 pub type AppError {
+  // UserError(user.UserError)
   InternalServerError(String)
   Unauthorized
   BadRequest(String)
@@ -27,23 +30,23 @@ pub fn handle_error(req: Request, err: AppError) -> Response {
 
   case err {
     NotFound(_) -> {
-      format_log(req, None, message) |> wisp.log_warning()
+      format_log(req, message) |> wisp.log_warning()
       helper.error_response(message, 404)
     }
     Unauthorized -> {
-      format_log(req, None, message) |> wisp.log_warning()
+      format_log(req, message) |> wisp.log_warning()
       helper.error_response(message, 401)
     }
     InternalServerError(_) | DatabaseError(_) | HashError(_) -> {
-      format_log(req, None, message) |> wisp.log_error()
-      helper.error_response("internal server error", 500)
+      format_log(req, message) |> wisp.log_error()
+      helper.internal_server_error()
     }
     BadRequest(_) -> {
-      format_log(req, None, message) |> wisp.log_warning()
+      format_log(req, message) |> wisp.log_warning()
       helper.error_response(message, 400)
     }
     ValidationError(_) -> {
-      format_log(req, None, message) |> wisp.log_warning()
+      format_log(req, message) |> wisp.log_warning()
       helper.error_response(message, 400)
     }
     Conflict(err) -> {
@@ -56,38 +59,46 @@ pub fn handle_error(req: Request, err: AppError) -> Response {
         }
         _ -> ""
       }
-      format_log(req, None, message)
+      format_log(req, message)
       helper.error_response(key <> " already exists", 409)
     }
   }
 }
 
-pub fn format_log(
+pub fn format_log_with_res(
   req: Request,
-  res: option.Option(Response),
+  res: Response,
   message: String,
 ) -> String {
   let log =
     timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
     <> " "
-  case res {
-    option.Some(res) ->
-      log
-      <> int.to_string(res.status)
-      <> " "
-      <> http_method_to_string(req.method)
-      <> " "
-      <> req.path
-      <> " "
-      <> message
-    None ->
-      log
-      <> http_method_to_string(req.method)
-      <> " "
-      <> req.path
-      <> " "
-      <> message
-  }
+  log
+  <> int.to_string(res.status)
+  <> " "
+  <> http_method_to_string(req.method)
+  <> " "
+  <> req.path
+  <> " "
+  <> message
+}
+
+pub fn format_log(req: Request, message: String) -> String {
+  let log =
+    timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
+    <> " "
+
+  log <> http_method_to_string(req.method) <> " " <> req.path <> " " <> message
+}
+
+pub fn decode_error_to_string(err: List(decode.DecodeError)) {
+  list.map(err, fn(err) {
+    case err {
+      decode.DecodeError(expected:, found:, ..) ->
+        "expected: " <> expected <> ", found: " <> found
+    }
+  })
+  |> string.join(",")
 }
 
 fn http_method_to_string(method: http.Method) -> String {
@@ -125,7 +136,7 @@ pub fn app_error_to_string(err: AppError) -> String {
   }
 }
 
-fn pog_error_to_string(err: pog.QueryError) -> String {
+pub fn pog_error_to_string(err: pog.QueryError) -> String {
   case err {
     pog.ConstraintViolated(message:, constraint:, detail:) ->
       "constraint violated: { message:"
@@ -161,7 +172,7 @@ fn pog_error_to_string(err: pog.QueryError) -> String {
   }
 }
 
-fn argus_error_to_string(err: argus.HashError) -> String {
+pub fn argus_error_to_string(err: argus.HashError) -> String {
   case err {
     argus.OutputPointerIsNull -> "output pointer is null"
     argus.OutputTooShort -> "output too short"

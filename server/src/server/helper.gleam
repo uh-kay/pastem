@@ -45,9 +45,15 @@ pub fn html_response(
 }
 
 pub fn error_response(message: String, status: Int) -> Response {
-  json.object([#("error", json.string(message))])
-  |> json.to_string
-  |> wisp.json_response(status)
+  json_response(["error"], [json.string(message)], status)
+}
+
+pub fn internal_server_error() {
+  error_response("internal server error", 500)
+}
+
+pub fn unauthorized() {
+  error_response("unauthorized", 401)
 }
 
 pub fn html_error_response(status: Int) -> Response {

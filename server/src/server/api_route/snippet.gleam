@@ -6,20 +6,27 @@ import gleam/result
 import gleam/time/duration
 import gleam/time/timestamp
 import server/context.{type Context}
-import server/error.{BadRequest}
+import server/error
 import server/helper
 import server/model/snippet
+import server/validator/validator
 import shared
-import validator/validator
 import wisp.{type Request}
+
+pub type SnippetError {
+  SnippetError(snippet.SnippetError)
+  ValidationError(validator.ValidationError)
+  DecodeError(List(decode.DecodeError))
+  InvalidIdError(id: String)
+}
 
 pub fn get_snippet(ctx: Context, req: Request, id: String) {
   let result = {
     use id <- result.try(
-      int.parse(id) |> result.replace_error(BadRequest("invalid id")),
+      int.parse(id) |> result.replace_error(InvalidIdError(id)),
     )
 
-    snippet.get_snippet(ctx, id)
+    snippet.get_snippet(ctx, id) |> result.map_error(SnippetError)
   }
 
   case result {
@@ -27,7 +34,7 @@ pub fn get_snippet(ctx: Context, req: Request, id: String) {
       helper.json_response(["snippet"], [shared.snippet_to_json(snippet)], 200)
     Error(err) ->
       case err {
-        _ -> error.handle_error(req, err)
+        _ -> handle_error(req, err)
       }
   }
 }
@@ -51,7 +58,7 @@ pub fn list_snippets(ctx: Context, req: Request) {
         [json.array(snippets, shared.snippet_to_json), json.int(count)],
         200,
       )
-    Error(err) -> error.handle_error(req, err)
+    Error(err) -> snippet.handle_error(req, err)
   }
 }
 
@@ -81,20 +88,22 @@ pub fn store_snippet(ctx: Context, req: Request) {
   let result = {
     result.try(
       decode.run(json, store_snippet_decoder())
-        |> result.replace_error(BadRequest("missing title, content, or ttl")),
+        |> result.map_error(DecodeError),
       fn(input) {
         use _ <- result.try(
           validator.new()
           |> snippet.validate_title(input.title)
           |> snippet.validate_content(input.content)
           |> snippet.validate_ttl(input.ttl)
-          |> validator.valid,
+          |> validator.valid
+          |> result.map_error(ValidationError),
         )
 
         let expires_at =
           timestamp.add(timestamp.system_time(), duration.hours(input.ttl))
 
         snippet.create_snippet(ctx, input.title, input.content, expires_at)
+        |> result.map_error(SnippetError)
       },
     )
   }
@@ -106,7 +115,7 @@ pub fn store_snippet(ctx: Context, req: Request) {
         [json.string("snippet created"), json.int(id)],
         201,
       )
-    Error(err) -> error.handle_error(req, err)
+    Error(err) -> handle_error(req, err)
   }
 }
 
@@ -134,7 +143,7 @@ pub fn update_snippet(ctx: Context, req: Request, id: String) {
   let result = {
     use input <- result.try(
       decode.run(json, update_snippet_decoder())
-      |> result.replace_error(BadRequest("missing title and content")),
+      |> result.map_error(DecodeError),
     )
 
     use _ <- result.try(
@@ -151,14 +160,16 @@ pub fn update_snippet(ctx: Context, req: Request, id: String) {
           |> snippet.validate_content(content)
         None, None -> validator.new()
       }
-      |> validator.valid,
+      |> validator.valid
+      |> result.map_error(ValidationError),
     )
 
     use id <- result.try(
-      int.parse(id) |> result.replace_error(BadRequest("invalid id")),
+      int.parse(id) |> result.replace_error(InvalidIdError(id)),
     )
 
     snippet.update_snippet(ctx, input.title, input.content, id)
+    |> result.map_error(SnippetError)
   }
 
   case result {
@@ -172,22 +183,37 @@ pub fn update_snippet(ctx: Context, req: Request, id: String) {
           )
         _ -> helper.error_response("edit conflict", 409)
       }
-    Error(err) -> error.handle_error(req, err)
+    Error(err) -> handle_error(req, err)
   }
 }
 
 pub fn delete_snippet(ctx: Context, req: Request, id: String) {
   let result = {
     use id <- result.try(
-      int.parse(id) |> result.replace_error(BadRequest("invalid id")),
+      int.parse(id) |> result.replace_error(InvalidIdError(id)),
     )
 
-    snippet.delete_snippet(ctx, id)
+    snippet.delete_snippet(ctx, id) |> result.map_error(SnippetError)
   }
 
   case result {
     Ok(_) ->
       helper.json_response(["message"], [json.string("snippet deleted")], 200)
-    Error(err) -> error.handle_error(req, err)
+    Error(err) -> handle_error(req, err)
+  }
+}
+
+pub fn handle_error(req: wisp.Request, err: SnippetError) {
+  case err {
+    ValidationError(err) -> validator.handle_error(req, err)
+    SnippetError(err) -> snippet.handle_error(req, err)
+    DecodeError(err) -> {
+      error.decode_error_to_string(err) |> wisp.log_warning()
+      helper.error_response("bad request", 400)
+    }
+    InvalidIdError(id:) -> {
+      error.format_log(req, "invalid id: " <> id) |> wisp.log_warning()
+      helper.error_response("invalid id", 400)
+    }
   }
 }
