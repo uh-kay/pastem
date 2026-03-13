@@ -1,5 +1,5 @@
 import argus
-import gleam/bit_array
+import gleam/crypto
 import gleam/list
 import gleam/result
 import gleam/string
@@ -140,7 +140,7 @@ pub fn verify_user(ctx: context.Context, email: String, password: String) {
 }
 
 pub fn get_user_by_token(ctx: context.Context, token: String) {
-  let token_hash = bit_array.from_string(token)
+  let token_hash = crypto.hash(crypto.Sha256, <<token:utf8>>)
 
   use user <- result.try(
     sql.get_user_by_token(token_hash)
