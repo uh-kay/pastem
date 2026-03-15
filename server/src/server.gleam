@@ -43,6 +43,8 @@ pub fn main() -> Nil {
       <> " server started",
   )
 
+  process.sleep(500)
+
   let assert Ok(_) = migrate_db()
 
   process.sleep_forever()
