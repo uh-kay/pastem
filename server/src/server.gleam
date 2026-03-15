@@ -57,6 +57,7 @@ fn mist_config(ctx) {
   |> wisp_mist.handler(secret_key_base)
   |> mist.new
   |> mist.port(port)
+  |> mist.bind("0.0.0.0")
 }
 
 pub fn pog_config() -> pog.Config {
