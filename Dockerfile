@@ -10,5 +10,6 @@ RUN \
 USER pastem
 COPY --from=build /app/server/build/erlang-shipment /app
 WORKDIR /app
+EXPOSE 8000
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["run"]
