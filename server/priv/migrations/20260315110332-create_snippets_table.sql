@@ -1,5 +1,4 @@
--- +goose Up
--- +goose StatementBegin
+--- migration:up
 CREATE TABLE IF NOT EXISTS snippets (
     id bigserial primary key,
     author bigint not null references users(id),
@@ -10,9 +9,6 @@ CREATE TABLE IF NOT EXISTS snippets (
     updated_at bigint not null,
     created_at bigint not null
 );
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
+--- migration:down
 DROP TABLE IF EXISTS snippets;
--- +goose StatementEnd
+--- migration:end

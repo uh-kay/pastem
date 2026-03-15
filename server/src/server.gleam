@@ -1,3 +1,5 @@
+import cigogne
+import cigogne/config
 import envoy
 import gleam/erlang/process
 import gleam/int
@@ -24,9 +26,10 @@ pub fn main() -> Nil {
       option.None,
       option.None,
     )
+  let assert Ok(priv_directory) = wisp.priv_directory("server")
 
   let db_spec = pog_config |> pog.supervised
-  let server_spec = mist_config(ctx) |> mist.supervised
+  let server_spec = mist_config(ctx, priv_directory) |> mist.supervised
 
   let assert Ok(_) =
     static_supervisor.new(OneForOne)
@@ -37,17 +40,18 @@ pub fn main() -> Nil {
   logging.log(
     logging.Info,
     timestamp.to_rfc3339(timestamp.system_time(), calendar.local_offset())
-      <> " server started on port 8000",
+      <> " server started",
   )
+
+  let assert Ok(_) = migrate_db()
 
   process.sleep_forever()
 }
 
-fn mist_config(ctx) {
+fn mist_config(ctx, priv_directory) {
   let secret_key_base =
     result.unwrap(envoy.get("SECRET_KEY_BASE"), "changethis")
 
-  let assert Ok(priv_directory) = wisp.priv_directory("server")
   let static_directory = priv_directory <> "/static"
 
   let port_str = result.unwrap(envoy.get("PORT"), "8000")
@@ -65,4 +69,13 @@ pub fn pog_config() -> pog.Config {
   let assert Ok(database_url) = envoy.get("DATABASE_URL")
   let assert Ok(pog_config) = pog.url_config(db_pool_name, database_url)
   pog_config |> pog.pool_size(10)
+}
+
+fn migrate_db() {
+  use config <- result.try(
+    config.get("server") |> result.map_error(cigogne.ConfigError),
+  )
+
+  use engine <- result.try(cigogne.create_engine(config))
+  cigogne.apply_all(engine)
 }

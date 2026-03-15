@@ -7,6 +7,7 @@ packages = [
   { name = "backoff", version = "1.1.6", build_tools = ["rebar3"], requirements = [], otp_app = "backoff", source = "hex", outer_checksum = "CF0CFFF8995FB20562F822E5CC47D8CCF664C5ECDC26A684CBE85C225F9D7C39" },
   { name = "birdie", version = "1.5.4", build_tools = ["gleam"], requirements = ["argv", "edit_distance", "envoy", "filepath", "glance", "gleam_community_ansi", "gleam_stdlib", "global_value", "justin", "rank", "simplifile", "term_size", "tom", "trie_again"], otp_app = "birdie", source = "hex", outer_checksum = "BA5176A11460B4F182DCD24C7BC125DCAE9B8D99D06BB75BF7248E0C4843706A" },
   { name = "booklet", version = "1.1.0", build_tools = ["gleam"], requirements = [], otp_app = "booklet", source = "hex", outer_checksum = "08E0FDB78DC4D8A5D3C80295B021505C7D2A2E7B6C6D5EAB7286C36F4A53C851" },
+  { name = "cigogne", version = "5.0.5", build_tools = ["gleam"], requirements = ["argv", "envoy", "gleam_crypto", "gleam_erlang", "gleam_otp", "gleam_stdlib", "gleam_time", "pog", "simplifile", "splitter", "tom"], otp_app = "cigogne", source = "hex", outer_checksum = "C65012988BDFE143D78DDFE65B1DC6B720E8F6E2FC6CD87959376002886D78E8" },
   { name = "directories", version = "1.2.0", build_tools = ["gleam"], requirements = ["envoy", "gleam_stdlib", "platform", "simplifile"], otp_app = "directories", source = "hex", outer_checksum = "D13090CFCDF6759B87217E8DDD73A75903A700148A82C1D33799F333E249BF9E" },
   { name = "edit_distance", version = "3.0.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "edit_distance", source = "hex", outer_checksum = "DE588BC3483ED6DBA717211B59F3178891A5FC6F1C00D415AE8C4233EAFB94B1" },
   { name = "envoy", version = "1.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "envoy", source = "hex", outer_checksum = "850DA9D29D2E5987735872A2B5C81035146D7FE19EFC486129E44440D03FD832" },
@@ -66,6 +67,7 @@ packages = [
 [requirements]
 argus = { version = ">= 1.0.3 and < 2.0.0" }
 birdie = { version = ">= 1.5.4 and < 2.0.0" }
+cigogne = { version = ">= 5.0.5 and < 6.0.0" }
 envoy = { version = ">= 1.1.0 and < 2.0.0" }
 formal = { version = ">= 3.0.0 and < 4.0.0" }
 gleam_crypto = { version = ">= 1.5.1 and < 2.0.0" }

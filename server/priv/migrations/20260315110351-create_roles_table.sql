@@ -1,5 +1,4 @@
--- +goose Up
--- +goose StatementBegin
+--- migration:up
 CREATE TABLE IF NOT EXISTS roles (
     id BIGSERIAL primary key,
     name varchar(255) not null unique,
@@ -13,9 +12,6 @@ VALUES ('user', 'can create snippets', 1, 1770141720);
 
 INSERT INTO roles (name, description, level, created_at)
 VALUES ('admin', 'can update and delete snippets', 2, 1770141720);
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
+--- migration:down
 DROP TABLE IF EXISTS roles;
--- +goose StatementEnd
+--- migration:end

@@ -1,5 +1,4 @@
--- +goose Up
--- +goose StatementBegin
+--- migration:up
 CREATE TABLE if not exists users (
     id bigserial primary key,
     username varchar(255) unique not null,
@@ -7,9 +6,6 @@ CREATE TABLE if not exists users (
     password_hash text not null,
     created_at bigint not null
 );
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
+--- migration:down
 drop table if exists users;
--- +goose StatementEnd
+--- migration:end
