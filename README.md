@@ -1,3 +1,5 @@
+[![Built with Gleam](https://img.shields.io/badge/built%20with-gleam-ffaff3?logo=gleam)](https://gleam.run)
+
 # Pastem
 
 Paste service written in Gleam.
